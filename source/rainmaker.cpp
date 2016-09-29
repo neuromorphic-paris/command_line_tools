@@ -281,6 +281,7 @@ int main(int argc, char* argv[]) {
                         bytes.push_back(exposure);
                     }
                 );
+
                 if (change) {
                     slope = static_cast<double>(220) / std::log(2);
                     intercept = 0;
@@ -328,13 +329,16 @@ int main(int argc, char* argv[]) {
 
                     // generate the base frame
                     auto frame = std::vector<unsigned char>(opalKellyAtisSepia::Camera::width() * opalKellyAtisSepia::Camera::height() * 4);
-                    if (frametime > 0) {
+                    if (autoFrametime || frametime > 0) {
                         for (auto timeDeltaIterator = base.begin(); timeDeltaIterator != base.end(); ++timeDeltaIterator) {
-                            auto exposure = slope * std::log(*timeDeltaIterator) + intercept;
-                            if (exposure < 0) {
-                                exposure = 0;
-                            } else if (exposure > 255) {
-                                exposure = 255;
+                            auto exposure = static_cast<double>(0);
+                            if (*timeDeltaIterator != 0) {
+                                exposure = slope * std::log(*timeDeltaIterator) + intercept;
+                                if (exposure < 0) {
+                                    exposure = 0;
+                                } else if (exposure > 255) {
+                                    exposure = 255;
+                                }
                             }
                             const auto index = (
                                 ((timeDeltaIterator - base.begin()) % opalKellyAtisSepia::Camera::width())
@@ -342,11 +346,12 @@ int main(int argc, char* argv[]) {
                                     opalKellyAtisSepia::Camera::height() - 1 - (timeDeltaIterator - base.begin()) / opalKellyAtisSepia::Camera::width()
                                 ) * opalKellyAtisSepia::Camera::width()
                             ) * 4;
-                            frame[index] = exposure;
-                            frame[index + 1] = exposure;
-                            frame[index + 2] = exposure;
-                            frame[index + 3] = 0xff;
+                            frame[index] = static_cast<unsigned char>(exposure);
+                            frame[index + 1] = static_cast<unsigned char>(exposure);
+                            frame[index + 2] = static_cast<unsigned char>(exposure);
+                            frame[index + 3] = static_cast<unsigned char>(0xff);
                         }
+
                         auto pngImage = std::vector<unsigned char>();
                         lodepng::encode(pngImage, frame, opalKellyAtisSepia::Camera::width(), opalKellyAtisSepia::Camera::height());
                         writeHtmlFrame(htmlFile, encodedCharactersFromBytes(pngImage), 0);

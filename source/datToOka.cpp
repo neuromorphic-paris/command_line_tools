@@ -15,45 +15,71 @@ enum class Status {
 int main(int argc, char* argv[]) {
     auto showHelp = false;
     try {
-        const auto result = pontella::parse(argc, argv, 3, {}, {{"help", "h"}});
-        if (result.flags.find("help") != result.flags.end()) {
+        const auto command = pontella::parse(argc, argv, 3, {}, {{"help", "h"}});
+        if (command.flags.find("help") != command.flags.end()) {
             showHelp = true;
         } else {
-            if (result.arguments[0] == result.arguments[1]) {
-                throw std::runtime_error("The td and aps inputs must be different files");
+            if (command.arguments[0] == command.arguments[1]) {
+                throw std::runtime_error("The td and aps inputs must be different files, and cannot be both null");
             }
-            if (result.arguments[0] == result.arguments[2]) {
+            if (command.arguments[0] == command.arguments[2]) {
                 throw std::runtime_error("The td input and the oka output must be different files");
             }
-            if (result.arguments[1] == result.arguments[2]) {
+            if (command.arguments[1] == command.arguments[2]) {
                 throw std::runtime_error("The aps input and the oka output must be different files");
             }
-
-            std::ifstream tdFile(result.arguments[0]);
-            if (!tdFile.good()) {
-                throw sepia::UnreadableFile(result.arguments[0]);
+            if (command.arguments[0] == "null" && command.arguments[1] == "null") {
+                throw std::runtime_error("null cannot be used for both the td file and aps file");
             }
-            std::ifstream apsFile(result.arguments[1]);
-            if (!apsFile.good()) {
-                throw sepia::UnreadableFile(result.arguments[1]);
+
+            auto tdEnabled = true;
+            std::ifstream tdFile;
+            if (command.arguments[0] == "null") {
+                tdEnabled = false;
+            } else {
+                tdFile.open(command.arguments[0]);
+                if (!tdFile.good()) {
+                    throw sepia::UnreadableFile(command.arguments[0]);
+                }
+            }
+
+            auto apsEnabled = true;
+            std::ifstream apsFile;
+            if (command.arguments[1] == "null") {
+                apsEnabled = false;
+            } else {
+                apsFile.open(command.arguments[1]);
+                if (!tdFile.good()) {
+                    throw sepia::UnreadableFile(command.arguments[1]);
+                }
             }
 
             opalKellyAtisSepia::Log opalKellyAtisSepiaLog;
-            opalKellyAtisSepiaLog.writeTo(result.arguments[2]);
+            opalKellyAtisSepiaLog.writeTo(command.arguments[2]);
 
             auto tdBytes = std::array<unsigned char, 8>();
             auto apsBytes = std::array<unsigned char, 8>();
-            tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
-            apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
+            if (tdEnabled) {
+                tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
+                if (!apsEnabled && tdFile.eof()) {
+                    throw std::runtime_error("The td file is empty");
+                }
+            }
+            if (apsEnabled) {
+                apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
 
-            if (tdFile.eof() && apsFile.eof()) {
-                throw std::runtime_error("Both the TD file and the APS file are empty");
+                if (!tdEnabled && apsFile.eof()) {
+                    throw std::runtime_error("The aps file is empty");
+                }
+            }
+            if (tdEnabled && apsEnabled && tdFile.eof() && apsFile.eof()) {
+                throw std::runtime_error("Both the td file and the aps file are empty");
             }
 
             auto tdEvent = sepia::Event{};
             auto apsEvent = sepia::Event{};
             auto status = Status::tdLate;
-            if (tdFile.eof()) {
+            if (!tdEnabled || tdFile.eof()) {
                 status = Status::tdEndOfFile;
             } else {
                 tdEvent = sepia::Event{
@@ -67,7 +93,7 @@ int main(int argc, char* argv[]) {
                     ((tdBytes[6] & 0x2) >> 1) == 0x01,
                 };
             }
-            if (apsFile.eof()) {
+            if (!apsEnabled || apsFile.eof()) {
                 status = Status::apsEndOfFile;
             } else {
                 apsEvent = sepia::Event{
@@ -184,10 +210,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (showHelp) {
-        std::cout
-            << "Syntax: ./datToOka [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.oka\n"
-            << "Available options:\n"
-            << "    -h, --help    show this help message\n"
+        std::cout <<
+            "Syntax: ./datToOka [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.oka\n"
+            "    If the charcaters chain 'null' (without quotes) is given for the td / aps file,\n"
+            "    the oka file is build from the aps / td file only\n"
+            "Available options:\n"
+            "    -h, --help    shows this help message\n"
         << std::endl;
     }
 
