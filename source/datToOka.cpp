@@ -212,7 +212,7 @@ int main(int argc, char* argv[]) {
     if (showHelp) {
         std::cout <<
             "Syntax: ./datToOka [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.oka\n"
-            "    If the charcaters chain 'null' (without quotes) is given for the td / aps file,\n"
+            "    If the characters chain 'null' (without quotes) is given for the td / aps file,\n"
             "    the oka file is build from the aps / td file only\n"
             "Available options:\n"
             "    -h, --help    shows this help message\n"
