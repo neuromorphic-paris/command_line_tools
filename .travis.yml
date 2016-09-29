@@ -27,7 +27,7 @@ before_install:
 
 before_script:
     - git clone https://github.com/neuromorphic-paris/sepia.git
-    - cd sepia && sudo premake4 install && cd ..
+    - cd sepia && premake4 install && cd ..
     - git clone https://github.com/neuromorphic-paris/tarsier.git
     - cd tarsier && premake4 install && cd ..
 
