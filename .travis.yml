@@ -27,7 +27,12 @@ before_install:
 
 before_script:
     - git clone https://github.com/neuromorphic-paris/sepia.git
-    - cd sepia && premake4 install && cd ..
+    - cd sepia && premake4 install
+    - |
+        if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+            sudo ldconfig
+        fi
+    - cd ..
     - git clone https://github.com/neuromorphic-paris/tarsier.git
     - cd tarsier && premake4 install && cd ..
 
