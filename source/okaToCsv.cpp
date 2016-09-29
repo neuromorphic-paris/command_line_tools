@@ -49,6 +49,7 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
+            "OkaToCsv converts an oka file into a csv file (compatible with Excel and Matlab)\n"
             "Syntax: ./okaToCsv [options] /path/to/input.oka /path/to/output.csv\n"
             "Available options:\n"
             "    -h, --help    shows this help message\n"

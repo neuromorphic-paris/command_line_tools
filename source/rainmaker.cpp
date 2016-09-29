@@ -411,20 +411,21 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
+            "Rainmaker generates a standalone html file with a 3D representation of events from an oka file\n"
             "Syntax: ./rainmaker [options] /path/to/input.oka /path/to/output.html\n"
             "Available options:\n"
-            "    -t [timestamp], --timestamp [timestamp]      set the initial timestamp for the point cloud (defaults to 0)\n"
-            "    -d [duration], --duration [duration]         set the duration (in microseconds) for the point cloud (defaults to 1000000)\n"
-            "    -e [decay], --decay [decay]                  set the decay used by the maskIsolated handler (defaults to 10000)\n"
-            "    -r [ratio], --ratio [ratio]                  set the discard ratio for logarithmic tone mapping (default to 0.05)\n"
-            "    -f [frame time], --frametime [frame time]    set the time between two frames (defaults to auto)\n"
+            "    -t [timestamp], --timestamp [timestamp]      sets the initial timestamp for the point cloud (defaults to 0)\n"
+            "    -d [duration], --duration [duration]         sets the duration (in microseconds) for the point cloud (defaults to 1000000)\n"
+            "    -e [decay], --decay [decay]                  sets the decay used by the maskIsolated handler (defaults to 10000)\n"
+            "    -r [ratio], --ratio [ratio]                  sets the discard ratio for logarithmic tone mapping (default to 0.05)\n"
+            "    -f [frame time], --frametime [frame time]    sets the time between two frames (defaults to auto)\n"
             "                                                     auto calculates the time between two frames so that\n"
             "                                                     there is the same amount of raw data in events and frames,\n"
             "                                                     a duration in microseconds can be provided instead,\n"
             "                                                     none disables the frames\n"
-            "    -c, --change                                 display change detections instead of exposure measurements\n"
+            "    -c, --change                                 displays change detections instead of exposure measurements\n"
             "                                                     the ratio and frame time options are ignored\n"
-            "    -h, --help                                   show this help message\n"
+            "    -h, --help                                   shows this help message\n"
         << std::endl;
     }
 
