@@ -26,9 +26,9 @@ before_install:
         fi
 
 before_script:
-    - git clone git@github.com:neuromorphic-paris/sepia.git
+    - git clone https://github.com/neuromorphic-paris/sepia.git
     - cd sepia && premake4 install && cd ..
-    - git clone git@github.com:neuromorphic-paris/tarsier.git
+    - git clone https://github.com/neuromorphic-paris/tarsier.git
     - cd tarsier && premake4 install && cd ..
 
 script:
