@@ -7,17 +7,17 @@
 int main(int argc, char* argv[]) {
     auto showHelp = false;
     try {
-        const auto result = pontella::parse(argc, argv, 2, {}, {{"help", "h"}});
-        if (result.flags.find("help") != result.flags.end()) {
+        const auto command = pontella::parse(argc, argv, 2, {}, {{"help", "h"}});
+        if (command.flags.find("help") != command.flags.end()) {
             showHelp = true;
         } else {
-            if (result.arguments[0] == result.arguments[1]) {
+            if (command.arguments[0] == command.arguments[1]) {
                 throw std::runtime_error("The oka input and the csv output must be different files");
             }
 
-            std::ofstream csvFile(result.arguments[1]);
+            std::ofstream csvFile(command.arguments[1]);
             if (!csvFile.good()) {
-                throw sepia::UnreadableFile(result.arguments[1]);
+                throw sepia::UnreadableFile(command.arguments[1]);
             }
 
             std::mutex lock;
@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) {
                     logObservableException = exception;
                     lock.unlock();
                 },
-                result.arguments[0],
+                command.arguments[0],
                 sepia::LogObservable::Dispatch::asFastAsPossible
             );
             lock.lock();
@@ -48,10 +48,11 @@ int main(int argc, char* argv[]) {
     }
 
     if (showHelp) {
-        std::cout
-            << "Syntax: ./okaToCsv [options] /path/to/input.oka /path/to/output.csv\n"
-            << "Available options:\n"
-            << "    -h, --help    show this help message\n"
+        std::cout <<
+            "OkaToCsv converts an oka file into a csv file (compatible with Excel and Matlab)\n"
+            "Syntax: ./okaToCsv [options] /path/to/input.oka /path/to/output.csv\n"
+            "Available options:\n"
+            "    -h, --help    shows this help message\n"
         << std::endl;
     }
 
