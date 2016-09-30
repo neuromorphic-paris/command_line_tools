@@ -7,10 +7,10 @@ matrix:
           sudo: required
           compiler: gcc
         - os: osx
-          osx_image: xcode7.3
+          osx_image: xcode8
           compiler: gcc
         - os: osx
-          osx_image: xcode7.3
+          osx_image: xcode8
           compiler: clang
 
 before_install:
@@ -26,9 +26,14 @@ before_install:
         fi
 
 before_script:
-    - git clone git@github.com:neuromorphic-paris/sepia.git
-    - cd sepia && premake4 install && cd ..
-    - git clone git@github.com:neuromorphic-paris/tarsier.git
+    - git clone https://github.com/neuromorphic-paris/sepia.git
+    - cd sepia && premake4 install
+    - |
+        if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
+            sudo ldconfig
+        fi
+    - cd ..
+    - git clone https://github.com/neuromorphic-paris/tarsier.git
     - cd tarsier && premake4 install && cd ..
 
 script:
