@@ -17,11 +17,11 @@ Utilities relies on [Premake 4.x](https://github.com/premake/premake-4.x) (x ≥
 
 Utilities also depends on three home-made libraries Sepia, Tarsier and Pontella. They can be installed from source by executing the following commands from a terminal:
 ```sh
-git clone git@github.com:neuromorphic-paris/sepia.git
+git clone https://github.com/neuromorphic-paris/sepia.git
 cd sepia && premake4 install && cd .. && rm -rf sepia
-git clone git@github.com:neuromorphic-paris/tarsier.git
+git clone https://github.com/neuromorphic-paris/tarsier.git
 cd tarsier && premake4 install && cd .. && rm -rf tarsier
-git clone git@github.com:neuromorphic-paris/pontella.git
+git clone https://github.com/neuromorphic-paris/pontella.git
 cd pontella && premake4 install && cd .. && rm -rf pontella
 ```
 
