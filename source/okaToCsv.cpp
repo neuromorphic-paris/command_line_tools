@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
             auto logObservableException = std::current_exception();
             auto logObservable = opalKellyAtisSepia::make_logObservable(
                 [&csvFile](sepia::Event event) -> void {
-                    csvFile << event.x << "\t" << event.y << "\t" << event.timestamp << "\t" << event.isThresholdCrossing << "\t" << event.polarity << "\n";
+                    csvFile << event.x << ",\t" << event.y << ",\t" << event.timestamp << ",\t" << event.isThresholdCrossing << ",\t" << event.polarity << "\n";
                 },
                 [&lock, &logObservableException](std::exception_ptr exception) -> void {
                     logObservableException = exception;
