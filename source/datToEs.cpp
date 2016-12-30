@@ -211,7 +211,7 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
-            "DatToOka converts a td file and an aps file into an Event Stream file\n"
+            "DatToEs converts a td file and an aps file into an Event Stream file\n"
             "Syntax: ./datToEs [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es\n"
             "    If the characters chain 'null' (without quotes) is given for the td / aps file,\n"
             "    the Event Stream file is build from the aps / td file only\n"

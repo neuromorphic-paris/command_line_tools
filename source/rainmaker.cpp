@@ -411,8 +411,8 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
-            "Rainmaker generates a standalone html file with a 3D representation of events from an oka file\n"
-            "Syntax: ./rainmaker [options] /path/to/input.oka /path/to/output.html\n"
+            "Rainmaker generates a standalone html file with a 3D representation of events from an Event Stream file\n"
+            "Syntax: ./rainmaker [options] /path/to/input.es /path/to/output.html\n"
             "Available options:\n"
             "    -t [timestamp], --timestamp [timestamp]      sets the initial timestamp for the point cloud (defaults to 0)\n"
             "    -d [duration], --duration [duration]         sets the duration (in microseconds) for the point cloud (defaults to 1000000)\n"

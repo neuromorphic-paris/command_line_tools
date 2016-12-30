@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
-            "OkaToCsv converts an Event Stream file into a csv file (compatible with Excel and Matlab)\n"
+            "EsToCsv converts an Event Stream file into a csv file (compatible with Excel and Matlab)\n"
             "Syntax: ./esToCsv [options] /path/to/input.es /path/to/output.csv\n"
             "Available options:\n"
             "    -h, --help    shows this help message\n"

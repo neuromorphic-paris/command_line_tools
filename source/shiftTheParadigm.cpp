@@ -359,7 +359,7 @@ int main(int argc, char* argv[]) {
             "    the input frames must be 304 pixels wide and 240 pixels tall\n"
             "Available options:\n"
             "    -f [framerate], --framerate [framerate]                    sets the input number of frames per second (defaults to 1000)\n"
-            "    -c, --color                                                generate color events instead of ATIS events\n"
+            "    -c, --color                                                generates color events instead of ATIS events\n"
             "    -t [threshold], --threshold [threshold]                    sets the relative luminance threshold for triggering an event (defaults to 0.1)\n"
             "                                                               when using the color switch, represents the minimum distance in L*a*b*\n"
             "                                                               space instead (defaults to 10)\n"
