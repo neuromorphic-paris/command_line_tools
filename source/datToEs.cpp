@@ -1,5 +1,5 @@
 #include <pontella.hpp>
-#include <opalKellyAtisSepia.hpp>
+#include <sepia.hpp>
 
 #include <array>
 #include <iostream>
@@ -23,10 +23,10 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("The td and aps inputs must be different files, and cannot be both null");
             }
             if (command.arguments[0] == command.arguments[2]) {
-                throw std::runtime_error("The td input and the oka output must be different files");
+                throw std::runtime_error("The td input and the es output must be different files");
             }
             if (command.arguments[1] == command.arguments[2]) {
-                throw std::runtime_error("The aps input and the oka output must be different files");
+                throw std::runtime_error("The aps input and the es output must be different files");
             }
             if (command.arguments[0] == "null" && command.arguments[1] == "null") {
                 throw std::runtime_error("null cannot be used for both the td file and aps file");
@@ -54,8 +54,8 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            opalKellyAtisSepia::Log opalKellyAtisSepiaLog;
-            opalKellyAtisSepiaLog.writeTo(command.arguments[2]);
+            sepia::EventStreamWriter eventStreamWriter;
+            eventStreamWriter.open(command.arguments[2]);
 
             auto tdBytes = std::array<unsigned char, 8>();
             auto apsBytes = std::array<unsigned char, 8>();
@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
                 tdEvent = sepia::Event{
                     static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                     static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                    static_cast<int64_t>(tdBytes[0])
+                    static_cast<uint64_t>(tdBytes[0])
                     | (static_cast<int64_t>(tdBytes[1]) << 8)
                     | (static_cast<int64_t>(tdBytes[2]) << 16)
                     | (static_cast<int64_t>(tdBytes[3]) << 24),
@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
             for (auto done = false; !done;) {
                 switch (status) {
                     case Status::tdLate: {
-                        opalKellyAtisSepiaLog(tdEvent);
+                        eventStreamWriter(tdEvent);
                         tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
                         if (tdFile.eof()) {
                             status = Status::tdEndOfFile;
@@ -126,10 +126,10 @@ int main(int argc, char* argv[]) {
                             tdEvent = sepia::Event{
                                 static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                                 static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                                static_cast<int64_t>(tdBytes[0])
-                                | (static_cast<int64_t>(tdBytes[1]) << 8)
-                                | (static_cast<int64_t>(tdBytes[2]) << 16)
-                                | (static_cast<int64_t>(tdBytes[3]) << 24),
+                                static_cast<uint64_t>(tdBytes[0])
+                                | (static_cast<uint64_t>(tdBytes[1]) << 8)
+                                | (static_cast<uint64_t>(tdBytes[2]) << 16)
+                                | (static_cast<uint64_t>(tdBytes[3]) << 24),
                                 false,
                                 ((tdBytes[6] & 0x2) >> 1) == 0x01,
                             };
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                     case Status::apsLate: {
-                        opalKellyAtisSepiaLog(apsEvent);
+                        eventStreamWriter(apsEvent);
                         apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
                         if (apsFile.eof()) {
                             status = Status::apsEndOfFile;
@@ -162,7 +162,7 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                     case Status::tdEndOfFile: {
-                        opalKellyAtisSepiaLog(apsEvent);
+                        eventStreamWriter(apsEvent);
                         apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
                         if (apsFile.eof()) {
                             done = true;
@@ -181,7 +181,7 @@ int main(int argc, char* argv[]) {
                         break;
                     }
                     case Status::apsEndOfFile: {
-                        opalKellyAtisSepiaLog(tdEvent);
+                        eventStreamWriter(tdEvent);
                         tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
                         if (tdFile.eof()) {
                             done = true;
@@ -189,10 +189,10 @@ int main(int argc, char* argv[]) {
                             tdEvent = sepia::Event{
                                 static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                                 static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                                static_cast<int64_t>(tdBytes[0])
-                                | (static_cast<int64_t>(tdBytes[1]) << 8)
-                                | (static_cast<int64_t>(tdBytes[2]) << 16)
-                                | (static_cast<int64_t>(tdBytes[3]) << 24),
+                                static_cast<uint64_t>(tdBytes[0])
+                                | (static_cast<uint64_t>(tdBytes[1]) << 8)
+                                | (static_cast<uint64_t>(tdBytes[2]) << 16)
+                                | (static_cast<uint64_t>(tdBytes[3]) << 24),
                                 false,
                                 ((tdBytes[6] & 0x2) >> 1) == 0x01,
                             };
@@ -211,10 +211,10 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
-            "DatToOka converts a td file and an aps file into an oka file\n"
-            "Syntax: ./datToOka [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.oka\n"
+            "DatToOka converts a td file and an aps file into an Event Stream file\n"
+            "Syntax: ./datToEs [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es\n"
             "    If the characters chain 'null' (without quotes) is given for the td / aps file,\n"
-            "    the oka file is build from the aps / td file only\n"
+            "    the Event Stream file is build from the aps / td file only\n"
             "Available options:\n"
             "    -h, --help    shows this help message\n"
         << std::endl;

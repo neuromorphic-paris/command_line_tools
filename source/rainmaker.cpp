@@ -2,7 +2,7 @@
 #include "lodepng.hpp"
 
 #include <pontella.hpp>
-#include <opalKellyAtisSepia.hpp>
+#include <sepia.hpp>
 #include <tarsier/stitch.hpp>
 #include <tarsier/maskIsolated.hpp>
 
@@ -12,7 +12,7 @@
 struct ExposureMeasurement {
     uint16_t x;
     uint16_t y;
-    int64_t timestamp;
+    uint64_t timestamp;
     uint64_t timeDelta;
 };
 
@@ -167,11 +167,11 @@ int main(int argc, char* argv[]) {
             std::mutex lock;
             lock.lock();
             auto logObservableException = std::current_exception();
-            auto base = std::vector<uint64_t>(opalKellyAtisSepia::Camera::width() * opalKellyAtisSepia::Camera::height());
+            auto base = std::vector<uint64_t>(304 * 240);
             auto exposureMeasurements = std::vector<ExposureMeasurement>();
 
             if (change) {
-                auto logObservable = opalKellyAtisSepia::make_logObservable(
+                auto eventStreamObservable = sepia::make_eventStreamObservable(
                     sepia::make_split(
                         [firstTimestamp, lastTimestamp, &exposureMeasurements](sepia::ChangeDetection changeDetection) -> void {
                             if (changeDetection.timestamp >= firstTimestamp) {
@@ -194,17 +194,17 @@ int main(int argc, char* argv[]) {
                         lock.unlock();
                     },
                     command.arguments[0],
-                    sepia::LogObservable::Dispatch::asFastAsPossible
+                    sepia::EventStreamObservable::Dispatch::asFastAsPossible
                 );
                 lock.lock();
                 lock.unlock();
             } else {
-                auto logObservable = opalKellyAtisSepia::make_logObservable(
+                auto eventStreamObservable = sepia::make_eventStreamObservable(
                     sepia::make_split(
                         [](sepia::ChangeDetection) -> void {},
                         tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement>(
-                            opalKellyAtisSepia::Camera::width(),
-                            opalKellyAtisSepia::Camera::height(),
+                            304,
+                            240,
                             [](sepia::ThresholdCrossing secondThresholdCrossing, uint64_t timeDelta) -> ExposureMeasurement {
                                 return ExposureMeasurement{
                                     secondThresholdCrossing.x,
@@ -215,7 +215,7 @@ int main(int argc, char* argv[]) {
                             },
                             [firstTimestamp, lastTimestamp, &base, &exposureMeasurements](ExposureMeasurement exposureMeasurement) -> void {
                                 if (exposureMeasurement.timestamp < firstTimestamp) {
-                                    base[exposureMeasurement.x + exposureMeasurement.y * opalKellyAtisSepia::Camera::width()] = exposureMeasurement.timeDelta;
+                                    base[exposureMeasurement.x + exposureMeasurement.y * 304] = exposureMeasurement.timeDelta;
                                 } else if (exposureMeasurement.timestamp > lastTimestamp) {
                                     throw sepia::EndOfFile(); // throw to stop the log observable
                                 } else {
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
                         lock.unlock();
                     },
                     command.arguments[0],
-                    sepia::LogObservable::Dispatch::asFastAsPossible
+                    sepia::EventStreamObservable::Dispatch::asFastAsPossible
                 );
                 lock.lock();
                 lock.unlock();
@@ -244,8 +244,8 @@ int main(int argc, char* argv[]) {
                 auto slope = static_cast<double>(0);
                 auto intercept = static_cast<double>(128);
                 auto maskIsolated = tarsier::make_maskIsolated<ExposureMeasurement>(
-                    opalKellyAtisSepia::Camera::width(),
-                    opalKellyAtisSepia::Camera::height(),
+                    304,
+                    240,
                     decay,
                     [&bytes, &timestampOffset, &slope, &intercept](ExposureMeasurement exposureMeasurement) mutable -> void {
                         auto reducedTimestamp = exposureMeasurement.timestamp - timestampOffset;
@@ -293,7 +293,7 @@ int main(int argc, char* argv[]) {
                         frametime = static_cast<std::size_t>(
                             static_cast<double>(lastTimestamp - firstTimestamp)
                             / static_cast<double>(exposureMeasurements.size())
-                            * opalKellyAtisSepia::Camera::width() * opalKellyAtisSepia::Camera::height()
+                            * 304 * 240
                         );
                     }
 
@@ -328,7 +328,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     // generate the base frame
-                    auto frame = std::vector<unsigned char>(opalKellyAtisSepia::Camera::width() * opalKellyAtisSepia::Camera::height() * 4);
+                    auto frame = std::vector<unsigned char>(304 * 240 * 4);
                     if (autoFrametime || frametime > 0) {
                         for (auto timeDeltaIterator = base.begin(); timeDeltaIterator != base.end(); ++timeDeltaIterator) {
                             auto exposure = static_cast<double>(0);
@@ -341,10 +341,10 @@ int main(int argc, char* argv[]) {
                                 }
                             }
                             const auto index = (
-                                ((timeDeltaIterator - base.begin()) % opalKellyAtisSepia::Camera::width())
+                                ((timeDeltaIterator - base.begin()) % 304)
                                 + (
-                                    opalKellyAtisSepia::Camera::height() - 1 - (timeDeltaIterator - base.begin()) / opalKellyAtisSepia::Camera::width()
-                                ) * opalKellyAtisSepia::Camera::width()
+                                    240 - 1 - (timeDeltaIterator - base.begin()) / 304
+                                ) * 304
                             ) * 4;
                             frame[index] = static_cast<unsigned char>(exposure);
                             frame[index + 1] = static_cast<unsigned char>(exposure);
@@ -353,7 +353,7 @@ int main(int argc, char* argv[]) {
                         }
 
                         auto pngImage = std::vector<unsigned char>();
-                        lodepng::encode(pngImage, frame, opalKellyAtisSepia::Camera::width(), opalKellyAtisSepia::Camera::height());
+                        lodepng::encode(pngImage, frame, 304, 240);
                         writeHtmlFrame(htmlFile, encodedCharactersFromBytes(pngImage), 0);
                     }
 
@@ -364,7 +364,7 @@ int main(int argc, char* argv[]) {
                         if (frametime > 0) {
                             if (exposureMeasurement.timestamp > nextFrameTimestamp) {
                                 auto pngImage = std::vector<unsigned char>();
-                                lodepng::encode(pngImage, frame, opalKellyAtisSepia::Camera::width(), opalKellyAtisSepia::Camera::height());
+                                lodepng::encode(pngImage, frame, 304, 240);
                                 writeHtmlFrame(
                                     htmlFile,
                                     encodedCharactersFromBytes(pngImage),
@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
                                 nextFrameTimestamp += frametime;
                             }
                             const auto index = (
-                                exposureMeasurement.x + (opalKellyAtisSepia::Camera::height() - 1 - exposureMeasurement.y) * opalKellyAtisSepia::Camera::width()
+                                exposureMeasurement.x + (240 - 1 - exposureMeasurement.y) * 304
                             ) * 4;
                             auto exposure = slope * std::log(exposureMeasurement.timeDelta) + intercept;
                             if (exposure < 0) {
@@ -388,7 +388,7 @@ int main(int argc, char* argv[]) {
                     }
                     if (nextFrameTimestamp <= lastTimestamp) {
                         auto pngImage = std::vector<unsigned char>();
-                        lodepng::encode(pngImage, frame, opalKellyAtisSepia::Camera::width(), opalKellyAtisSepia::Camera::height());
+                        lodepng::encode(pngImage, frame, 304, 240);
                         writeHtmlFrame(
                             htmlFile,
                             encodedCharactersFromBytes(pngImage),
