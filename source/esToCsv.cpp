@@ -1,5 +1,5 @@
 #include <pontella.hpp>
-#include <opalKellyAtisSepia.hpp>
+#include <sepia.hpp>
 
 #include <iostream>
 #include <mutex>
@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) {
             showHelp = true;
         } else {
             if (command.arguments[0] == command.arguments[1]) {
-                throw std::runtime_error("The oka input and the csv output must be different files");
+                throw std::runtime_error("The es input and the csv output must be different files");
             }
 
             std::ofstream csvFile(command.arguments[1]);
@@ -22,21 +22,21 @@ int main(int argc, char* argv[]) {
 
             std::mutex lock;
             lock.lock();
-            auto logObservableException = std::current_exception();
-            auto logObservable = opalKellyAtisSepia::make_logObservable(
+            auto eventStreamObservableException = std::current_exception();
+            auto eventStreamObservable = sepia::make_eventStreamObservable(
                 [&csvFile](sepia::Event event) -> void {
                     csvFile << event.x << ",\t" << event.y << ",\t" << event.timestamp << ",\t" << event.isThresholdCrossing << ",\t" << event.polarity << "\n";
                 },
-                [&lock, &logObservableException](std::exception_ptr exception) -> void {
-                    logObservableException = exception;
+                [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                    eventStreamObservableException = exception;
                     lock.unlock();
                 },
                 command.arguments[0],
-                sepia::LogObservable::Dispatch::asFastAsPossible
+                sepia::EventStreamObservable::Dispatch::asFastAsPossible
             );
             lock.lock();
             lock.unlock();
-            std::rethrow_exception(logObservableException);
+            std::rethrow_exception(eventStreamObservableException);
         }
     } catch (const sepia::EndOfFile&) {
         // normal end
@@ -49,8 +49,8 @@ int main(int argc, char* argv[]) {
 
     if (showHelp) {
         std::cout <<
-            "OkaToCsv converts an oka file into a csv file (compatible with Excel and Matlab)\n"
-            "Syntax: ./okaToCsv [options] /path/to/input.oka /path/to/output.csv\n"
+            "EsToCsv converts an Event Stream file into a csv file (compatible with Excel and Matlab)\n"
+            "Syntax: ./esToCsv [options] /path/to/input.es /path/to/output.csv\n"
             "Available options:\n"
             "    -h, --help    shows this help message\n"
         << std::endl;

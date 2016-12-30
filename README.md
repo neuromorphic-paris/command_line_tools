@@ -34,9 +34,9 @@ The applications are compiled as command line executables in the *build/Release*
 
 ## Rainmaker
 
-Rainmaker generates a standalone html file with a 3D representation of events from an oka file. The syntax is as follows:
-```sh
-./rainmaker [options] /path/to/input.oka /path/to/output.html
+Rainmaker generates a standalone html file with a 3D representation of events from an Event Stream file. The syntax is as follows:
+```
+./rainmaker [options] /path/to/input.es /path/to/output.html
 ```
 Available options are:\n"
   - `-t [timestamp]`, `--timestamp [timestamp]` sets the initial timestamp for the point cloud (defaults to `0`)
@@ -47,23 +47,38 @@ Available options are:\n"
   - `-c`, `--change` displays change detections instead of exposure measurements, the ratio and frame time options are ignored
   - `-h`, `--help` shows the help message
 
-## OkaToCsv
+## EsToCsv
 
-OkaToCsv converts an oka file into a csv file (compatible with Excel and Matlab). The syntax is as follows:
-```sh
-./okaToCsv [options] /path/to/input.oka /path/to/output.csv
+EsToCsv converts an Event Stream file into a csv file (compatible with Excel and Matlab). The syntax is as follows:
+```
+./esToCsv [options] /path/to/input.es /path/to/output.csv
 ```
 Available options are:
   - `-h`, `--help` shows the help message
 
-## DatToOka
+## DatToEs
 
-DatToOka converts a td file and an aps file into an oka file. The syntax is as follows:
-```sh
-./datToOka [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.oka
+DatToEs converts a td file and an aps file into an Event Stream file. The syntax is as follows:
 ```
-If the charcaters chain 'null' (without quotes) is given for the td / aps file, the oka file is build from the aps / td file only.
+./datToEs [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es
+```
+If the charcaters chain 'null' (without quotes) is given for the td / aps file, the Event Stream file is build from the aps / td file only.
 Available options are:
+  - `-h`, `--help` shows the help message
+
+## ShiftTheParadigm
+
+ShiftTheParadigm converts a set of png frames into an Event Stream file. The syntax is as follows:
+```
+./shiftTheParadigm [options] /path/to/frame#####.png /path/to/output.es
+```
+The sharps in the input filename are replaced by numbers (starting at 0), and can appear anywhere in the name. If there are several distinct sets of sharps in the filename (as an example, `/path/to/directory#/frame#####_####.png`), the last one is used (with the previous example, the first frame would be `/path/to/directory#/frame#####_0000.png`). The input frames must be 304 pixels wide and 240 pixels tall.
+Available options are:
+  - `-f [framerate], --framerate [framerate]` sets the input number of frames per second (defaults to `1000`)
+  - `-c, --color` generates color events instead of ATIS events
+  - `-t [threshold], --threshold [threshold]` sets the relative luminance threshold for triggering an event (defaults to `0.1`), when using the color switch, represents the minimum distance in L*a*b* space instead (defaults to `10)
+  - `-b [black exposure time] --black [black exposure time]` sets the black exposure time in microseconds (defaults to `100000`), ignored when using the color switch
+  - `-w [white exposure time], --white [white exposure time]` sets the white exposure time in microseconds (defaults to `1000`), ignored when using the color switch, the white exposure time must be smaller than the black exposure time
   - `-h`, `--help` shows the help message
 
 # License

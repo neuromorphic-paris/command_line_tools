@@ -30,9 +30,6 @@ solution 'utilities'
         includedirs {path.join(prefix, 'include')}
         libdirs {path.join(prefix, 'lib')}
 
-        -- Link the dependencies
-        links {'opalkellyfrontpanel'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -54,20 +51,17 @@ solution 'utilities'
             linkoptions {'-std=c++11', '-stdlib=libc++'}
 
 
-    project 'okaToCsv'
+    project 'esToCsv'
         -- General settings
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/okaToCsv.cpp'}
+        files {'source/esToCsv.cpp'}
 
         -- Define the include paths
         includedirs {path.join(prefix, 'include')}
         libdirs {path.join(prefix, 'lib')}
 
-        -- Link the dependencies
-        links {'opalkellyfrontpanel'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -89,20 +83,17 @@ solution 'utilities'
             linkoptions {'-std=c++11', '-stdlib=libc++'}
 
 
-    project 'datToOka'
+    project 'datToEs'
         -- General settings
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/datToOka.cpp'}
+        files {'source/datToEs.cpp'}
 
         -- Define the include paths
         includedirs {path.join(prefix, 'include')}
         libdirs {path.join(prefix, 'lib')}
 
-        -- Link the dependencies
-        links {'opalkellyfrontpanel'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -123,3 +114,34 @@ solution 'utilities'
             buildoptions {'-std=c++11', '-stdlib=libc++'}
             linkoptions {'-std=c++11', '-stdlib=libc++'}
 
+
+    project 'shiftTheParadigm'
+        -- General settings
+        kind 'ConsoleApp'
+        language 'C++'
+        location 'build'
+        files {'source/lodepng.hpp', 'source/lodepng.cpp', 'source/shiftTheParadigm.cpp'}
+
+        -- Define the include paths
+        includedirs {path.join(prefix, 'include')}
+        libdirs {path.join(prefix, 'lib')}
+
+        -- Declare the configurations
+        configuration 'Release'
+            targetdir 'build/Release'
+            defines {'NDEBUG'}
+            flags {'OptimizeSpeed'}
+        configuration 'Debug'
+            targetdir 'build/Debug'
+            defines {'DEBUG'}
+            flags {'Symbols'}
+
+        -- Linux specific settings
+        configuration 'linux'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+
+        -- Mac OS X specific settings
+        configuration 'macosx'
+            buildoptions {'-std=c++11', '-stdlib=libc++'}
+            linkoptions {'-std=c++11', '-stdlib=libc++'}
