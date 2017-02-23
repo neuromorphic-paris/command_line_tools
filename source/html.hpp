@@ -10,7 +10,7 @@
 template <typename ByteContainer>
 void encodedCharactersFromBytes(std::ostream& output, const ByteContainer& bytes) {
     const auto characters = std::string("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
-    auto data = static_cast<std::size_t>(0);
+    std::size_t data = 0;
     auto length = bytes.size();
     for (; length > 2; length -= 3) {
         data = (
@@ -543,12 +543,12 @@ void writeHtml(
     output << "            events = window.atob('";
     {
         auto bytes = std::vector<uint8_t>();
-        auto previousTimestamp = static_cast<uint64_t>(0);
+        uint64_t previousTimestamp = 0;
         for (auto&& colorEvent : colorEvents) {
             auto relativeTimestamp = colorEvent.timestamp - previousTimestamp;
             if (relativeTimestamp > 126) {
                 const auto numberOfOverflows = relativeTimestamp / 127;
-                for (auto index = static_cast<std::size_t>(0); index < numberOfOverflows; ++index) {
+                for (std::size_t index = 0; index < numberOfOverflows; ++index) {
                     bytes.push_back(static_cast<uint8_t>(0b11111111));
                 }
                 relativeTimestamp -= numberOfOverflows * 127;

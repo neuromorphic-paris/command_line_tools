@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
         } else {
 
             // retrieve the first timestamp
-            auto firstTimestamp = static_cast<uint64_t>(0);
+            uint64_t firstTimestamp = 0;
             {
                 const auto firstTimestampCandidate = command.options.find("timestamp");
                 if (firstTimestampCandidate != command.options.end()) {
@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
             }
 
             // retrieve the last timestamp
-            auto lastTimestamp = firstTimestamp + static_cast<uint64_t>(1000000);
+            uint64_t lastTimestamp = firstTimestamp + 1000000;
             {
                 const auto durationCandidate = command.options.find("duration");
                 if (durationCandidate != command.options.end()) {
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
             }
 
             // retrieve the decay
-            auto decay = static_cast<uint64_t>(10000);
+            uint64_t decay = 10000;
             {
                 const auto decayCandidate = command.options.find("decay");
                 if (decayCandidate != command.options.end()) {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
                 case Mode::grey: {
 
                     // retrieve the tone mapping discard ratio
-                    auto ratio = static_cast<double>(0.05);
+                    auto ratio = 0.05;
                     {
                         const auto ratioCandidate = command.options.find("ratio");
                         if (ratioCandidate != command.options.end()) {
@@ -198,8 +198,8 @@ int main(int argc, char* argv[]) {
                         }
 
                         // compute tone-mapping slope and intercept
-                        auto slope = static_cast<double>(0);
-                        auto intercept = static_cast<double>(128);
+                        auto slope = 0.0;
+                        auto intercept = 128.0;
                         {
                             auto timeDeltas = std::vector<uint64_t>();
                             timeDeltas.resize(exposureMeasurements.size());
@@ -362,7 +362,7 @@ int main(int argc, char* argv[]) {
             }
 
             // retrieve the frametime
-            auto frametime = static_cast<uint64_t>(0);
+            uint64_t frametime = 0;
             if (mode != Mode::change) {
                 const auto frametimeCandidate = command.options.find("frametime");
                 if (frametimeCandidate == command.options.end() || frametimeCandidate->second == "auto") {
