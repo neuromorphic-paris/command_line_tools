@@ -68,10 +68,12 @@ int main(int argc, char* argv[]) {
     try {
         const auto command = pontella::parse(argc, argv, 2, {
             {"framerate", "f"},
+            {"refractory", "r"},
             {"threshold", "t"},
             {"black", "b"},
             {"white", "w"},
         }, {
+            {"dvs", "d"},
             {"color", "c"},
             {"help", "h"}
         });
@@ -124,6 +126,19 @@ int main(int argc, char* argv[]) {
                 }
             }
 
+            // retrive the refractory period
+            auto refractory = static_cast<uint64_t>(1000);
+            {
+                const auto refractoryCandidate = command.options.find("refractory");
+                if (refractoryCandidate != command.options.end()) {
+                    try {
+                        refractory = std::stoull(refractoryCandidate->second);
+                    } catch (const std::invalid_argument&) {
+                        throw std::runtime_error("framerate must be a positive number");
+                    }
+                }
+            }
+
             // retrieve the threshold
             auto threshold = 0.1;
             if (command.flags.find("color") != command.flags.end()) {
@@ -142,7 +157,145 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            if (command.flags.find("color") == command.flags.end()) {
+
+            if (command.flags.find("dvs") != command.flags.end()) {
+
+                // open the output
+                sepia::EventStreamWriter eventStreamWriter;
+                eventStreamWriter.open(command.arguments[1]);
+                auto exposures = std::vector<double>(304 * 240, 0.0);
+
+                // compute constants
+                const auto frameDuration = 1e6 / framerate;
+
+                // load the frames while available
+                auto timestampsThresholds = std::vector<double>(304 * 240, 0);
+                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
+                    auto frame = std::vector<uint8_t>();
+                    {
+                        const auto filename = (
+                            std::stringstream()
+                            << beforeSharps
+                            << std::setfill('0')
+                            << std::setw(static_cast<int>(numberOfSharps))
+                            << frameIndex
+                            << afterSharps
+                        ).str();
+                        auto width = static_cast<uint32_t>(0);
+                        auto height = static_cast<uint32_t>(0);
+                        const auto error = lodepng::decode(frame, width, height, filename);
+                        if (error == 78) {
+                            if (frameIndex > 0) {
+                                break;
+                            }
+                            throw sepia::UnreadableFile(filename);
+                        } else if (error > 0) {
+                            throw std::runtime_error("error thrown while decoding '" + filename + "': " + lodepng_error_text(error));
+                        }
+                        if (width != 304 || height != 240) {
+                            throw std::runtime_error("the file '" + filename + "' does not have the expected dimensions");
+                        }
+                        std::cout << "Loaded '" << filename << "'" << std::endl;
+                    }
+                    for (auto pixel = frame.begin(); pixel != frame.end(); std::advance(pixel, 4)) {
+                        const auto pixelIndex = (pixel - frame.begin()) / 4;
+                        const auto lab = rgbToLab(Rgb{*pixel / 255.0, *std::next(pixel, 1) / 255.0, *std::next(pixel, 2) / 255.0});
+                        const auto exposureRatio = (exposures[pixelIndex] == 0 ?
+                            (lab.l == 0 ? 1 : std::numeric_limits<double>::infinity())
+                            :
+                            lab.l / exposures[pixelIndex]
+                        );
+
+                        if (frameIndex * frameDuration >= timestampsThresholds[pixelIndex]) {
+                            if (exposureRatio > (1.0 + threshold)) {
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    false,
+                                    true
+                                });
+                                exposures[pixelIndex] = lab.l;
+                                timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
+                            } else if (exposureRatio < (1.0 - threshold)) {
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    false,
+                                    false
+                                });
+                                exposures[pixelIndex] = lab.l;
+                                timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
+                            }
+                        }
+                    }
+                }
+            } else if (command.flags.find("color") != command.flags.end()) {
+
+                // open the output
+                sepia::ColorEventStreamWriter colorEventStreamWriter;
+                colorEventStreamWriter.open(command.arguments[1]);
+                auto labs = std::vector<Lab>(304 * 240, Lab{0, 0, 0});
+
+                // compute constants
+                const auto squaredThreshold = std::pow(threshold, 2);
+                const auto frameDuration = 1e6 / framerate;
+
+                // load the frames while available
+                auto timestampsThresholds = std::vector<double>(304 * 240, 0);
+                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
+                    auto frame = std::vector<uint8_t>();
+                    {
+                        const auto filename = (
+                            std::stringstream()
+                            << beforeSharps
+                            << std::setfill('0')
+                            << std::setw(static_cast<int>(numberOfSharps))
+                            << frameIndex
+                            << afterSharps
+                        ).str();
+                        auto width = static_cast<uint32_t>(0);
+                        auto height = static_cast<uint32_t>(0);
+                        const auto error = lodepng::decode(frame, width, height, filename);
+                        if (error == 78) {
+                            if (frameIndex > 0) {
+                                break;
+                            }
+                            throw sepia::UnreadableFile(filename);
+                        } else if (error > 0) {
+                            throw std::runtime_error("error thrown while decoding '" + filename + "': " + lodepng_error_text(error));
+                        }
+                        if (width != 304 || height != 240) {
+                            throw std::runtime_error("the file '" + filename + "' does not have the expected dimensions");
+                        }
+                        std::cout << "Loaded '" << filename << "'" << std::endl;
+                    }
+
+                    for (auto pixel = frame.begin(); pixel != frame.end(); std::advance(pixel, 4)) {
+                        const auto pixelIndex = (pixel - frame.begin()) / 4;
+                        const auto lab = rgbToLab(Rgb{*pixel / 255.0, *std::next(pixel, 1) / 255.0, *std::next(pixel, 2) / 255.0});
+                        if (
+                            std::pow(lab.l - labs[pixelIndex].l, 2) + std::pow(lab.a - labs[pixelIndex].a, 2) + std::pow(lab.b - labs[pixelIndex].b, 2)
+                            >
+                            squaredThreshold
+                            &&
+                            frameIndex * frameDuration >= timestampsThresholds[pixelIndex]
+                        ) {
+                            colorEventStreamWriter(sepia::ColorEvent{
+                                static_cast<uint16_t>(pixelIndex % 304),
+                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                static_cast<uint64_t>(frameIndex * frameDuration),
+                                *pixel,
+                                *std::next(pixel, 1),
+                                *std::next(pixel, 2),
+                            });
+                            labs[pixelIndex] = lab;
+                            timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
+                        }
+                    }
+                }
+            } else {
 
                 // retrieve the black and white exposure times
                 auto black = static_cast<uint64_t>(100000);
@@ -182,6 +335,7 @@ int main(int argc, char* argv[]) {
                 eventStreamWriter.open(command.arguments[1]);
                 auto exposures = std::vector<double>(304 * 240, 0.0);
                 auto charges = std::vector<double>(304 * 240, 0.0);
+                auto acquiring = std::vector<bool>(304 * 240, false);
 
                 // compute constants
                 const auto chargeConstant = 1.0 / black;
@@ -189,6 +343,7 @@ int main(int argc, char* argv[]) {
                 const auto frameDuration = 1e6 / framerate;
 
                 // load the frames while available
+                auto timestampsThresholds = std::vector<double>(304 * 240, 0);
                 for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
@@ -222,55 +377,66 @@ int main(int argc, char* argv[]) {
                         const auto lab = rgbToLab(Rgb{*pixel / 255.0, *std::next(pixel, 1) / 255.0, *std::next(pixel, 2) / 255.0});
                         const auto exposureRatio = (exposures[pixelIndex] == 0 ?
                             (lab.l == 0 ? 1 : std::numeric_limits<double>::infinity())
-                            : lab.l / exposures[pixelIndex]
+                            :
+                            lab.l / exposures[pixelIndex]
                         );
-                        if (exposureRatio > (1.0 + threshold)) {
-                            eventStreamWriter(sepia::Event{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration),
-                                false,
-                                true
-                            });
-                            eventStreamWriter(sepia::Event{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration),
-                                true,
-                                false
-                            });
-                            exposures[pixelIndex] = lab.l;
-                            charges[pixelIndex] = 0;
-                        } else if (exposureRatio < (1.0 - threshold)) {
-                            eventStreamWriter(sepia::Event{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration),
-                                false,
-                                false
-                            });
-                            eventStreamWriter(sepia::Event{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration),
-                                true,
-                                false
-                            });
-                            exposures[pixelIndex] = lab.l;
-                            charges[pixelIndex] = 0;
+
+                        if (frameIndex * frameDuration >= timestampsThresholds[pixelIndex]) {
+                            if (exposureRatio > (1.0 + threshold)) {
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    false,
+                                    true
+                                });
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    true,
+                                    false
+                                });
+                                exposures[pixelIndex] = lab.l;
+                                charges[pixelIndex] = 0;
+                                timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
+                                acquiring[pixelIndex] = true;
+                            } else if (exposureRatio < (1.0 - threshold)) {
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    false,
+                                    false
+                                });
+                                eventStreamWriter(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration),
+                                    true,
+                                    false
+                                });
+                                exposures[pixelIndex] = lab.l;
+                                charges[pixelIndex] = 0;
+                                timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
+                                acquiring[pixelIndex] = true;
+                            }
                         }
-                        const auto newCharge = charges[pixelIndex] + (chargeRatio * lab.l + chargeConstant) * frameDuration;
-                        if (newCharge < 1) {
-                            charges[pixelIndex] = newCharge;
-                        } else {
-                            secondThresholdCrossings.push_back(sepia::Event{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration + (1 - charges[pixelIndex]) / (chargeRatio * lab.l + chargeConstant)),
-                                true,
-                                true
-                            });
-                            charges[pixelIndex] = 0;
+                        if (acquiring[pixelIndex]) {
+                            const auto newCharge = charges[pixelIndex] + (chargeRatio * lab.l + chargeConstant) * frameDuration;
+                            if (newCharge < 1) {
+                                charges[pixelIndex] = newCharge;
+                            } else {
+                                secondThresholdCrossings.push_back(sepia::Event{
+                                    static_cast<uint16_t>(pixelIndex % 304),
+                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                    static_cast<uint64_t>(frameIndex * frameDuration + (1 - charges[pixelIndex]) / (chargeRatio * lab.l + chargeConstant)),
+                                    true,
+                                    true
+                                });
+                                charges[pixelIndex] = 0;
+                                acquiring[pixelIndex] = false;
+                            }
                         }
                     }
                     std::sort(secondThresholdCrossings.begin(), secondThresholdCrossings.end(), [](const sepia::Event& first, const sepia::Event& second) {
@@ -278,66 +444,6 @@ int main(int argc, char* argv[]) {
                     });
                     for (auto&& event : secondThresholdCrossings) {
                         eventStreamWriter(event);
-                    }
-                }
-            } else {
-
-                // open the output
-                sepia::ColorEventStreamWriter colorEventStreamWriter;
-                colorEventStreamWriter.open(command.arguments[1]);
-                auto labs = std::vector<Lab>(304 * 240, Lab{0, 0, 0});
-
-                // compute constants
-                const auto squaredThreshold = std::pow(threshold, 2);
-                const auto frameDuration = 1e6 / framerate;
-
-                // load the frames while available
-                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
-                    auto frame = std::vector<uint8_t>();
-                    {
-                        const auto filename = (
-                            std::stringstream()
-                            << beforeSharps
-                            << std::setfill('0')
-                            << std::setw(static_cast<int>(numberOfSharps))
-                            << frameIndex
-                            << afterSharps
-                        ).str();
-                        auto width = static_cast<uint32_t>(0);
-                        auto height = static_cast<uint32_t>(0);
-                        const auto error = lodepng::decode(frame, width, height, filename);
-                        if (error == 78) {
-                            if (frameIndex > 0) {
-                                break;
-                            }
-                            throw sepia::UnreadableFile(filename);
-                        } else if (error > 0) {
-                            throw std::runtime_error("error thrown while decoding '" + filename + "': " + lodepng_error_text(error));
-                        }
-                        if (width != 304 || height != 240) {
-                            throw std::runtime_error("the file '" + filename + "' does not have the expected dimensions");
-                        }
-                        std::cout << "Loaded '" << filename << "'" << std::endl;
-                    }
-
-                    for (auto pixel = frame.begin(); pixel != frame.end(); std::advance(pixel, 4)) {
-                        const auto pixelIndex = (pixel - frame.begin()) / 4;
-                        const auto lab = rgbToLab(Rgb{*pixel / 255.0, *std::next(pixel, 1) / 255.0, *std::next(pixel, 2) / 255.0});
-                        if (
-                            std::pow(lab.l - labs[pixelIndex].l, 2) + std::pow(lab.a - labs[pixelIndex].a, 2) + std::pow(lab.b - labs[pixelIndex].b, 2)
-                            >
-                            squaredThreshold
-                        ) {
-                            colorEventStreamWriter(sepia::ColorEvent{
-                                static_cast<uint16_t>(pixelIndex % 304),
-                                static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
-                                static_cast<uint64_t>(frameIndex * frameDuration),
-                                *pixel,
-                                *std::next(pixel, 1),
-                                *std::next(pixel, 2),
-                            });
-                            labs[pixelIndex] = lab;
-                        }
                     }
                 }
             }
@@ -359,15 +465,18 @@ int main(int argc, char* argv[]) {
             "    the input frames must be 304 pixels wide and 240 pixels tall\n"
             "Available options:\n"
             "    -f [framerate], --framerate [framerate]                    sets the input number of frames per second (defaults to 1000)\n"
+            "    -r [refractory], --refractory [refractory]                 sets the pixel refractory period in microseconds (defaults to 1000)\n"
+            "    -d, --dvs                                                  generates only change detections instead of ATIS events\n"
             "    -c, --color                                                generates color events instead of ATIS events\n"
+            "                                                                   ignored when using the dvs switch\n"
             "    -t [threshold], --threshold [threshold]                    sets the relative luminance threshold for triggering an event (defaults to 0.1)\n"
-            "                                                               when using the color switch, represents the minimum distance in L*a*b*\n"
-            "                                                               space instead (defaults to 10)\n"
+            "                                                                   when using the color switch, represents the minimum distance in L*a*b*\n"
+            "                                                                   space instead (defaults to 10)\n"
             "    -b [black exposure time], --black [black exposure time]    sets the black exposure time in microseconds (defaults to 100000)\n"
-            "                                                               ignored when using the color switch\n"
+            "                                                                   ignored when using the dvs or color switches\n"
             "    -w [white exposure time], --white [white exposure time]    sets the white exposure time in microseconds (defaults to 1000)\n"
-            "                                                               ignored when using the color switch\n"
-            "                                                               the white exposure time must be smaller than the black exposure time\n"
+            "                                                                   ignored when using the dvs or color switches\n"
+            "                                                                   the white exposure time must be smaller than the black exposure time\n"
             "    -h, --help                                                 shows this help message\n"
         << std::endl;
     }
