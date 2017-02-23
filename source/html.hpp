@@ -1,14 +1,65 @@
 #pragma once
 
-#include <fstream>
+#include "lodepng.hpp"
 
-void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, int64_t lastTimestamp, bool change) {
-    htmlFile <<
+#include <sepia.hpp>
+
+#include <array>
+
+/// encodedCharactersFromBytes appends a URL-encoded string to the given stream.
+template <typename ByteContainer>
+void encodedCharactersFromBytes(std::ostream& output, const ByteContainer& bytes) {
+    const auto characters = std::string("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/");
+    auto data = static_cast<std::size_t>(0);
+    auto length = bytes.size();
+    for (; length > 2; length -= 3) {
+        data = (
+            (static_cast<std::size_t>(bytes[bytes.size() - length]) << 16)
+            | (static_cast<std::size_t>(bytes[bytes.size() - length + 1]) << 8)
+            | bytes[bytes.size() - length + 2]
+        );
+        output.put(characters[(data & (63 << 18)) >> 18]);
+        output.put(characters[(data & (63 << 12)) >> 12]);
+        output.put(characters[(data & (63 << 6)) >> 6]);
+        output.put(characters[data & 63]);
+    }
+    if (length == 2) {
+        data = (static_cast<std::size_t>(bytes[bytes.size() - length]) << 16) | (static_cast<std::size_t>(bytes[bytes.size() - length + 1]) << 8);
+        output.put(characters[(data & (63 << 18)) >> 18]);
+        output.put(characters[(data & (63 << 12)) >> 12]);
+        output.put(characters[(data & (63 << 6)) >> 6]);
+        output.put('=');
+    } else if (length == 1) {
+        data = (static_cast<std::size_t>(bytes[bytes.size() - length]) << 16);
+        output.put(characters[(data & (63 << 18)) >> 18]);
+        output.put(characters[(data & (63 << 12)) >> 12]);
+        output.put('=');
+        output.put('=');
+    }
+}
+
+/// writeHtml generates an html file from events and frames.
+void writeHtml(
+    const std::string& filename,
+    const std::string& title,
+    uint64_t firstTimestamp,
+    uint64_t lastTimestamp,
+    const std::vector<sepia::ColorEvent>& colorEvents,
+    const std::vector<std::array<uint8_t, 304 * 240 * 4>>& frames,
+    uint64_t frametime
+) {
+    std::ofstream output(filename);
+
+    if (!output.good()) {
+        throw sepia::UnwritableFile(filename);
+    }
+
+    output <<
         "<!DOCTYPE html>\n"
         "<html style=\"width: 100%; height: 100%;\">\n"
         "    <head>\n"
         "        <meta http-equiv=\"Content-Type\" content=\"charset=utf-8\" />\n"
-        "        <title>ATIS</title>\n"
+        "        <title>" << title << "</title>\n"
         "        <style>\n"
         "            html div {\n"
         "                box-sizing: border-box;\n"
@@ -98,7 +149,7 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                    </shape>\n"
         "                    <transform translation=\"0, -6.83333, 0\" rotation=\"0, 0, 1, 3.14159\">\n"
         "                        <shape>\n"
-        "                            <appearance>    \n"
+        "                            <appearance>\n"
         "                                <material diffuseColor=\"0.1, 0.1, 0.1\"></material>\n"
         "                            </appearance>\n"
         "                            <cone height=\"0.6\" bottomRadius=\"0.18\"></cone>\n"
@@ -143,7 +194,7 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                    </appearance>\n"
         "                    <sphere radius=\"0.05\"></sphere>\n"
         "                </shape>\n"
-        " \n"
+        "\n"
         "                <!-- events and frames -->\n"
         "                <transform id=\"events-container\" translation=\"0.05, 0.05, 0\">\n"
         "                    <ClipPlane id=\"clip-plane\" plane=\"0, 0, -1, 0\"></ClipPlane>\n"
@@ -190,8 +241,11 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                </svg>\n"
         "            </div>\n"
         "            <div style=\"width: calc(100% - "
-        << (change ? "240pt" : "320pt")
-        << "); height: 100%; position: absolute; left: 240pt; border-right: 1px solid #888888;\">\n"
+        << (frames.empty() ?
+            "240pt"
+            :
+            "320pt"
+        ) << "); height: 100%; position: absolute; left: 240pt; border-right: 1px solid #888888;\">\n"
         "                <input id=\"time-range\" type=\"range\" min=\"0\" max=\"10\" value=\"0\" step=\"0.01\" style=\"\n"
         "                    width: calc(100% - 40pt);\n"
         "                    margin-left: 20pt;\n"
@@ -207,24 +261,26 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                   color: #555555;\n"
         "               \">" << firstTimestamp << "</div>\n"
         "            </div>\n"
-        << (change ? "" :
-        "            <div style=\"width: 80pt; height: 100%; position: absolute; right: 0pt;\">\n"
-        "                <div id=\"switch-frames\" class=\"switch disabled\" style=\"\n"
-        "                    text-align: center;\n"
-        "                    width: 100%;\n"
-        "                    height: 40pt;\n"
-        "                    line-height: 40pt;\n"
-        "                    color: #555555;\n"
-        "                \">Frames</div>\n"
-        "                <div id=\"switch-events\" class=\"switch\" style=\"\n"
-        "                    text-align: center;\n"
-        "                    width: 100%;\n"
-        "                    height: 40pt;\n"
-        "                    line-height: 40pt;\n"
-        "                    border-top: 1px solid #888888;\n"
-        "                    color: #555555;\n"
-        "                \">Events</div>\n"
-        "            </div>\n"
+        << (frames.empty() ?
+            ""
+            :
+            "            <div style=\"width: 80pt; height: 100%; position: absolute; right: 0pt;\">\n"
+            "                <div id=\"switch-frames\" class=\"switch disabled\" style=\"\n"
+            "                    text-align: center;\n"
+            "                    width: 100%;\n"
+            "                    height: 40pt;\n"
+            "                    line-height: 40pt;\n"
+            "                    color: #555555;\n"
+            "                \">Frames</div>\n"
+            "                <div id=\"switch-events\" class=\"switch\" style=\"\n"
+            "                    text-align: center;\n"
+            "                    width: 100%;\n"
+            "                    height: 40pt;\n"
+            "                    line-height: 40pt;\n"
+            "                    border-top: 1px solid #888888;\n"
+            "                    color: #555555;\n"
+            "                \">Events</div>\n"
+            "            </div>\n"
         ) <<
         "        </div>\n"
         "\n"
@@ -248,7 +304,12 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "\n"
         "        <script>\n"
         "            var events = '';\n"
-        "            var frames = [];\n"
+        "\n"
+        << (frames.empty() ?
+            ""
+            :
+            "            var frames = [];\n"
+        ) <<
         "            window.onload = function() {\n"
         "                var state = {\n"
         "                    playing: false,\n"
@@ -261,35 +322,82 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                    framesShapes: [],\n"
         "                };\n"
         "\n"
-        "                // read and display events\n"
         "                var eventsContainer = document.getElementById('events-container');\n"
+        "\n"
+        << (frames.empty() ?
+            ""
+            :
+            "                // read and display the frames\n"
+            "                frames.forEach(function(frame, index) {\n"
+            "                    var shape = document.createElement('shape');\n"
+            "                    var appearance = document.createElement('appearance');\n"
+            "                    var imageTexture = document.createElement('ImageTexture');\n"
+            "                    imageTexture.setAttribute('url', 'data:image/png;base64,' + frame.data);\n"
+            "                    appearance.appendChild(imageTexture);\n"
+            "                    shape.appendChild(appearance);\n"
+            "                    var plane = document.createElement('plane');\n"
+            "                    plane.setAttribute('size', '12.66667, 10');\n"
+            "                    plane.setAttribute('center', '6.33333, 5, ' + (frame.height - 0.00001));\n"
+            "                    shape.appendChild(plane);\n"
+            "                    eventsContainer.appendChild(shape);\n"
+            "                    if (index > 0) {\n"
+            "                        state.framesShapes.push(shape);\n"
+            "                    }\n"
+            "                });\n"
+            "\n"
+        ) <<
+        "                // read and display events\n"
         "                state.eventsShape = document.createElement('shape');\n"
-        << (change ? "" :
-        "                state.eventsShape.setAttribute('render', 'false');\n"
+        << (frames.empty() ?
+            ""
+            :
+            "                state.eventsShape.setAttribute('render', 'false');\n"
         ) <<
         "                var pointSet = document.createElement('pointSet');\n"
         "                var color = document.createElement('color');\n"
         "                var coordinate = document.createElement('coordinate');\n"
         "                var colorDefinition = '';\n"
         "                var coordinateDefinition = '';\n"
-        "                var timestampOffset = 0;\n"
-        "                for (var index = 0; index < events.length; index += 4) {\n"
-        "                    if (events.charCodeAt(index) == 255) {\n"
-        "                        timestampOffset += (\n"
-        "                            events.charCodeAt(index + 1)\n"
-        "                            | (events.charCodeAt(index + 2) << 8)\n"
-        "                            | (events.charCodeAt(index + 3) << 16)\n"
-        "                        ) * 127;\n"
-        "                    } else {\n"
-        "                        var exposure = events.charCodeAt(index + 3) / 255;\n"
-        "                        colorDefinition += exposure + ' ' + exposure + ' ' + exposure + ' ';\n"
-        "                        coordinateDefinition += [\n"
-        "                            (events.charCodeAt(index + 1) | ((events.charCodeAt(index + 2) & 128) << 1)) * 0.041841,\n"
-        "                            events.charCodeAt(index) * 0.041841,\n"
-        "                            "
-        << (static_cast<double>(10) / static_cast<double>(lastTimestamp - firstTimestamp))
-        << " * ((events.charCodeAt(index + 2) & 127) + timestampOffset),\n"
-        "                        ].join(' ') + ' ';\n"
+        "                var eventStreamState = 0;\n"
+        "                var x = 0;\n"
+        "                var timestamp = 0;\n"
+        "                var r = 0;\n"
+        "                var g = 0;\n"
+        "                for (var index = 0; index < events.length; ++index) {\n"
+        "                    switch (eventStreamState) {\n"
+        "                        case 0:\n"
+        "                            if ((events.charCodeAt(index) & 127) == 127) {\n"
+        "                                timestamp += ((events.charCodeAt(index) & 128) >> 7) * 127;\n"
+        "                            } else {\n"
+        "                                timestamp = timestamp + (events.charCodeAt(index) & 127);\n"
+        "                                x = ((events.charCodeAt(index) & 128) >> 7);\n"
+        "                                eventStreamState = 1;\n"
+        "                            }\n"
+        "                            break;\n"
+        "                        case 1:\n"
+        "                            x |= (events.charCodeAt(index) << 1);\n"
+        "                            eventStreamState = 2;\n"
+        "                            break;\n"
+        "                        case 2:\n"
+        "                            coordinateDefinition += [\n"
+        "                                x * 0.041841,\n"
+        "                                events.charCodeAt(index) * 0.041841,\n"
+        "                                (timestamp - " << firstTimestamp << ") * " << 10.0 / (lastTimestamp - firstTimestamp) << ",\n"
+        "                            ].join(' ') + ' ';\n"
+        "                            eventStreamState = 3;\n"
+        "                            break;\n"
+        "                        case 3:\n"
+        "                            r = events.charCodeAt(index);\n"
+        "                            eventStreamState = 4;\n"
+        "                            break;\n"
+        "                        case 4:\n"
+        "                            g = events.charCodeAt(index);\n"
+        "                            eventStreamState = 5;\n"
+        "                            break;\n"
+        "                        case 5:\n"
+        "                            colorDefinition += [r / 255, g / 255, events.charCodeAt(index) / 255].join(' ') + ' ';\n"
+        "                            eventStreamState = 0;\n"
+        "                            break;\n"
         "                    }\n"
         "                }\n"
         "                color.setAttribute('color', colorDefinition);\n"
@@ -298,24 +406,6 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                pointSet.appendChild(coordinate);\n"
         "                state.eventsShape.appendChild(pointSet);\n"
         "                eventsContainer.appendChild(state.eventsShape);\n"
-        "\n"
-        "                // read and display the frames\n"
-        "                frames.forEach(function(frame, index) {\n"
-        "                    var shape = document.createElement('shape');\n"
-        "                    var appearance = document.createElement('appearance');\n"
-        "                    var imageTexture = document.createElement('ImageTexture');\n"
-        "                    imageTexture.setAttribute('url', 'data:image/png;base64,' + frame.data);\n"
-        "                    appearance.appendChild(imageTexture);\n"
-        "                    shape.appendChild(appearance);\n"
-        "                    var plane = document.createElement('plane');\n"
-        "                    plane.setAttribute('size', '12.66667, 10');\n"
-        "                    plane.setAttribute('center', '6.33333, 5, ' + (frame.height - 0.00001));\n"
-        "                    shape.appendChild(plane);\n"
-        "                    eventsContainer.appendChild(shape);\n"
-        "                    if (index > 0) {\n"
-        "                        state.framesShapes.push(shape);\n"
-        "                    }\n"
-        "                });\n"
         "\n"
         "                // manage the control panel\n"
         "                var speeds = [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10];\n"
@@ -331,9 +421,11 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         "                var clipPlane = document.getElementById('clip-plane');\n"
         "                var timeRange = document.getElementById('time-range');\n"
         "                var timeText = document.getElementById('time-text');\n"
-        << (change ? "" :
-        "                var switchEvents = document.getElementById('switch-events');\n"
-        "                var switchFrames = document.getElementById('switch-frames');\n"
+        << (frames.empty() ?
+            ""
+            :
+            "                var switchEvents = document.getElementById('switch-events');\n"
+            "                var switchFrames = document.getElementById('switch-frames');\n"
         ) <<
         "                window.setInterval(function() {\n"
         "                    var value = "
@@ -399,54 +491,79 @@ void writeHtmlBeforeFramesTo(std::ofstream& htmlFile, int64_t firstTimestamp, in
         << ";\n"
         "                    }\n"
         "                })\n"
-        << (change ? "" :
-        "                switchFrames.addEventListener('click', function() {\n"
-        "                    if (state.events) {\n"
-        "                        state.events = false;\n"
-        "                        switchEvents.setAttribute('class', 'switch');\n"
-        "                        switchFrames.setAttribute('class', 'switch disabled');\n"
-        "                        state.eventsShape.setAttribute('render', 'false');\n"
-        "                        state.framesShapes.forEach(function(frame) {\n"
-        "                            frame.setAttribute('render', 'true');\n"
-        "                        });\n"
-        "                    }\n"
-        "                });\n"
-        "                switchEvents.addEventListener('click', function() {\n"
-        "                    if (!state.events) {\n"
-        "                        state.events = true;\n"
-        "                        switchFrames.setAttribute('class', 'switch')\n"
-        "                        switchEvents.setAttribute('class', 'switch disabled');\n"
-        "                        state.framesShapes.forEach(function(frame) {\n"
-        "                            frame.setAttribute('render', 'false');\n"
-        "                        });\n"
-        "                        state.eventsShape.setAttribute('render', 'true');\n"
-        "                    }\n"
-        "                });\n"
+        << (frames.empty() ?
+            ""
+            :
+            "                switchFrames.addEventListener('click', function() {\n"
+            "                    if (state.events) {\n"
+            "                        state.events = false;\n"
+            "                        switchEvents.setAttribute('class', 'switch');\n"
+            "                        switchFrames.setAttribute('class', 'switch disabled');\n"
+            "                        state.eventsShape.setAttribute('render', 'false');\n"
+            "                        state.framesShapes.forEach(function(frame) {\n"
+            "                            frame.setAttribute('render', 'true');\n"
+            "                        });\n"
+            "                    }\n"
+            "                });\n"
+            "                switchEvents.addEventListener('click', function() {\n"
+            "                    if (!state.events) {\n"
+            "                        state.events = true;\n"
+            "                        switchFrames.setAttribute('class', 'switch')\n"
+            "                        switchEvents.setAttribute('class', 'switch disabled');\n"
+            "                        state.framesShapes.forEach(function(frame) {\n"
+            "                            frame.setAttribute('render', 'false');\n"
+            "                        });\n"
+            "                        state.eventsShape.setAttribute('render', 'true');\n"
+            "                    }\n"
+            "                });\n"
         ) <<
         "            };\n"
         "\n"
         "            // manage the reset button\n"
-        "            var x3dWrapper = document.getElementById('x3d-wrapper');"
+        "            var x3dWrapper = document.getElementById('x3d-wrapper');\n"
         "            document.getElementById('reset-button').addEventListener('click', function() {\n"
         "                x3dWrapper.runtime.resetView();\n"
         "            });\n"
-        "\n"
-        "            frames = [\n";
-}
+        "\n";
 
-void writeHtmlFrame(std::ofstream& htmlFile, const std::string& encodedFrame, double height) {
-    htmlFile <<
-        "                {height: " << height << ", data: '" << encodedFrame << "'},\n";
-}
-
-void writeHtmlBetweenFramesAndEventsTo(std::ofstream& htmlFile, int64_t firstTimestamp, int64_t lastTimestamp) {
-    htmlFile <<
-            "            ];\n"
-            "            events = window.atob('";
-}
-
-void writeHtmlAfterEventsTo(std::ofstream& htmlFile) {
-    htmlFile <<
+    if (!frames.empty()) {
+        output << "            frames = [\n";
+        auto height = 0.0;
+        const auto frameHeight = 10.0 / (lastTimestamp - firstTimestamp) * frametime;
+        for (auto&& frame : frames) {
+            output << "                {height: " << height << ", data: '";
+            auto pngImage = std::vector<uint8_t>();
+            lodepng::encode(pngImage, std::vector<uint8_t>(frame.begin(), frame.end()), 304, 240);
+            encodedCharactersFromBytes(output, pngImage);
+            output << "'},\n";
+            height += frameHeight;
+        }
+        output << "            ];\n";
+    }
+    output << "            events = window.atob('";
+    {
+        auto bytes = std::vector<uint8_t>();
+        auto previousTimestamp = static_cast<uint64_t>(0);
+        for (auto&& colorEvent : colorEvents) {
+            auto relativeTimestamp = colorEvent.timestamp - previousTimestamp;
+            if (relativeTimestamp > 126) {
+                const auto numberOfOverflows = relativeTimestamp / 127;
+                for (auto index = static_cast<std::size_t>(0); index < numberOfOverflows; ++index) {
+                    bytes.push_back(static_cast<uint8_t>(0b11111111));
+                }
+                relativeTimestamp -= numberOfOverflows * 127;
+            }
+            bytes.push_back(static_cast<uint8_t>(relativeTimestamp) | static_cast<uint8_t>((colorEvent.x & 0b1) << 7));
+            bytes.push_back(static_cast<uint8_t>((colorEvent.x & 0b111111110) >> 1));
+            bytes.push_back(static_cast<uint8_t>(colorEvent.y));
+            bytes.push_back(colorEvent.r);
+            bytes.push_back(colorEvent.g);
+            bytes.push_back(colorEvent.b);
+            previousTimestamp = colorEvent.timestamp;
+        }
+        encodedCharactersFromBytes(output, bytes);
+    }
+    output <<
         "');\n"
         "            if(!Array.forEach){Array.forEach=function(array,fun,thisp){var len=array.length;for(var i=0;i<len;i++){if(i in array){fun.call(thisp,array[i],i,array);}}};}\n"
         "            if(!Array.map){Array.map=function(array,fun,thisp){var len=array.length;var res=[];for(var i=0;i<len;i++){if(i in array){res[i]=fun.call(thisp,array[i],i,array);}}\n"

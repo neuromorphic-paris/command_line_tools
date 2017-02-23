@@ -15,7 +15,7 @@ Utilities relies on [Premake 4.x](https://github.com/premake/premake-4.x) (x ≥
   - __OS X__: Open a terminal and execute the command `brew install premake`. If the command is not found, you need to install Homebrew first with the command<br />
   `ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`.
 
-Utilities also depends on three home-made libraries Sepia, Tarsier and Pontella. They can be installed from source by executing the following commands from a terminal:
+Utilities also depends on three home-made libraries: [Sepia](https://github.com/neuromorphic-paris/sepia), [Tarsier](https://github.com/neuromorphic-paris/tarsier) and [Pontella](https://github.com/neuromorphic-paris/pontella). They can be installed from source by executing the following commands from a terminal:
 ```sh
 git clone https://github.com/neuromorphic-paris/sepia.git
 cd sepia && premake4 install && cd .. && rm -rf sepia
@@ -75,10 +75,12 @@ ShiftTheParadigm converts a set of png frames into an Event Stream file. The syn
 The sharps in the input filename are replaced by numbers (starting at 0), and can appear anywhere in the name. If there are several distinct sets of sharps in the filename (as an example, `/path/to/directory#/frame#####_####.png`), the last one is used (with the previous example, the first frame would be `/path/to/directory#/frame#####_0000.png`). The input frames must be 304 pixels wide and 240 pixels tall.
 Available options are:
   - `-f [framerate], --framerate [framerate]` sets the input number of frames per second (defaults to `1000`)
-  - `-c, --color` generates color events instead of ATIS events
+  - `-r [refractory], --refractory [refractory]` sets the pixel refractory period in microseconds (defaults to `1000`)
+  - `-d, --dvs` generates only change detections instead of ATIS events
+  - `-c, --color` generates color events instead of ATIS events, ignored when using the dvs switch
   - `-t [threshold], --threshold [threshold]` sets the relative luminance threshold for triggering an event (defaults to `0.1`), when using the color switch, represents the minimum distance in L*a*b* space instead (defaults to `10)
-  - `-b [black exposure time] --black [black exposure time]` sets the black exposure time in microseconds (defaults to `100000`), ignored when using the color switch
-  - `-w [white exposure time], --white [white exposure time]` sets the white exposure time in microseconds (defaults to `1000`), ignored when using the color switch, the white exposure time must be smaller than the black exposure time
+  - `-b [black exposure time] --black [black exposure time]` sets the black exposure time in microseconds (defaults to `100000`), ignored when using the dvs or color switches
+  - `-w [white exposure time], --white [white exposure time]` sets the white exposure time in microseconds (defaults to `1000`), ignored when using the dvs or color switches, the white exposure time must be smaller than the black exposure time
   - `-h`, `--help` shows the help message
 
 # License
