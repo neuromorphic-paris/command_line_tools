@@ -84,7 +84,7 @@ int main(int argc, char* argv[]) {
             // retrieve the sharps position and number in the input
             auto beforeSharps = std::string();
             auto afterSharps = std::string();
-            auto numberOfSharps = static_cast<std::size_t>(0);
+            std::size_t numberOfSharps = 0;
             {
                 auto sharpsRbegin = command.arguments[0].rend();
                 auto sharpsRend = command.arguments[0].rend();
@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
             }
 
             // retrive the framerate
-            auto framerate = static_cast<double>(1000);
+            double framerate = 1000;
             {
                 const auto framerateCandidate = command.options.find("framerate");
                 if (framerateCandidate != command.options.end()) {
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]) {
             }
 
             // retrive the refractory period
-            auto refractory = static_cast<uint64_t>(1000);
+            uint64_t refractory = 1000;
             {
                 const auto refractoryCandidate = command.options.find("refractory");
                 if (refractoryCandidate != command.options.end()) {
@@ -170,7 +170,7 @@ int main(int argc, char* argv[]) {
 
                 // load the frames while available
                 auto timestampsThresholds = std::vector<double>(304 * 240, 0);
-                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
+                for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
                         const auto filename = (
@@ -181,8 +181,8 @@ int main(int argc, char* argv[]) {
                             << frameIndex
                             << afterSharps
                         ).str();
-                        auto width = static_cast<uint32_t>(0);
-                        auto height = static_cast<uint32_t>(0);
+                        uint32_t width = 0;
+                        uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
                         if (error == 78) {
                             if (frameIndex > 0) {
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
 
                 // load the frames while available
                 auto timestampsThresholds = std::vector<double>(304 * 240, 0);
-                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
+                for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
                         const auto filename = (
@@ -255,8 +255,8 @@ int main(int argc, char* argv[]) {
                             << frameIndex
                             << afterSharps
                         ).str();
-                        auto width = static_cast<uint32_t>(0);
-                        auto height = static_cast<uint32_t>(0);
+                        uint32_t width = 0;
+                        uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
                         if (error == 78) {
                             if (frameIndex > 0) {
@@ -298,7 +298,7 @@ int main(int argc, char* argv[]) {
             } else {
 
                 // retrieve the black and white exposure times
-                auto black = static_cast<uint64_t>(100000);
+                uint64_t black = 100000;
                 {
                     const auto blackCandidate = command.options.find("black");
                     if (blackCandidate != command.options.end()) {
@@ -312,7 +312,7 @@ int main(int argc, char* argv[]) {
                         }
                     }
                 }
-                auto white = static_cast<uint64_t>(1000);
+                uint64_t white = 1000;
                 {
                     const auto whiteCandidate = command.options.find("white");
                     if (whiteCandidate != command.options.end()) {
@@ -344,7 +344,7 @@ int main(int argc, char* argv[]) {
 
                 // load the frames while available
                 auto timestampsThresholds = std::vector<double>(304 * 240, 0);
-                for (auto frameIndex = static_cast<std::size_t>(0); frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
+                for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
                         const auto filename = (
@@ -355,8 +355,8 @@ int main(int argc, char* argv[]) {
                             << frameIndex
                             << afterSharps
                         ).str();
-                        auto width = static_cast<uint32_t>(0);
-                        auto height = static_cast<uint32_t>(0);
+                        uint32_t width = 0;
+                        uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
                         if (error == 78) {
                             if (frameIndex > 0) {
