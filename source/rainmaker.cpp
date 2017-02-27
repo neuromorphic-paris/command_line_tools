@@ -149,9 +149,7 @@ int main(int argc, char* argv[]) {
                     auto eventStreamObservable = sepia::make_eventStreamObservable(
                         sepia::make_split(
                             [](sepia::ChangeDetection) -> void {},
-                            tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement>(
-                                304,
-                                240,
+                            tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement, 304, 240>(
                                 [](sepia::ThresholdCrossing secondThresholdCrossing, uint64_t timeDelta) -> ExposureMeasurement {
                                     return ExposureMeasurement{
                                         secondThresholdCrossing.x,
@@ -160,10 +158,7 @@ int main(int argc, char* argv[]) {
                                         timeDelta,
                                     };
                                 },
-                                tarsier::make_maskIsolated<ExposureMeasurement>(
-                                    304,
-                                    240,
-                                    decay,
+                                tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, decay>(
                                     [
                                         firstTimestamp,
                                         lastTimestamp,
@@ -283,10 +278,7 @@ int main(int argc, char* argv[]) {
                     // retrieve change detections
                     auto eventStreamObservable = sepia::make_eventStreamObservable(
                         sepia::make_split(
-                            tarsier::make_maskIsolated<sepia::ChangeDetection>(
-                                304,
-                                240,
-                                decay,
+                            tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, decay>(
                                 [firstTimestamp, lastTimestamp, &colorEvents](sepia::ChangeDetection changeDetection) -> void {
                                     if (changeDetection.timestamp >= lastTimestamp) {
                                         throw sepia::EndOfFile(); // throw to stop the event stream observable
@@ -323,10 +315,7 @@ int main(int argc, char* argv[]) {
 
                     // retrieve color events
                     auto eventStreamObservable = sepia::make_colorEventStreamObservable(
-                        tarsier::make_maskIsolated<sepia::ColorEvent>(
-                            304,
-                            240,
-                            decay,
+                        tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, decay>(
                             [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
                                 if (colorEvent.timestamp >= lastTimestamp) {
                                     throw sepia::EndOfFile(); // throw to stop the event stream observable
