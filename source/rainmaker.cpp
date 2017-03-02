@@ -31,7 +31,6 @@ int main(int argc, char* argv[]) {
             {"timestamp", "t"},
             {"duration", "d"},
             {"mode", "m"},
-            {"decay", "e"},
             {"ratio", "r"},
             {"frametime", "f"},
         },
@@ -69,23 +68,6 @@ int main(int argc, char* argv[]) {
                         lastTimestamp = firstTimestamp + unvalidatedDuration;
                     } catch (const std::invalid_argument&) {
                         throw std::runtime_error("[duration] must be a positive integer (got '" + durationCandidate->second + "')");
-                    }
-                }
-            }
-
-            // retrieve the decay
-            uint64_t decay = 10000;
-            {
-                const auto decayCandidate = command.options.find("decay");
-                if (decayCandidate != command.options.end()) {
-                    try {
-                        const auto unvalidatedDecay = std::stoll(decayCandidate->second);
-                        if (unvalidatedDecay < 0) {
-                            throw std::runtime_error("[decay] must be a positive integer (got '" + decayCandidate->second + "')");
-                        }
-                        decay = static_cast<uint64_t>(unvalidatedDecay);
-                    } catch (const std::invalid_argument&) {
-                        throw std::runtime_error("[decay] must be a positive integer (got '" + decayCandidate->second + "')");
                     }
                 }
             }
@@ -147,6 +129,7 @@ int main(int argc, char* argv[]) {
                     auto timeDeltasBaseFrame = std::array<uint64_t, 304 * 240>();
                     timeDeltasBaseFrame.fill(std::numeric_limits<uint64_t>::max());
                     auto eventStreamObservable = sepia::make_eventStreamObservable(
+                        command.arguments[0],
                         sepia::make_split(
                             [](sepia::ChangeDetection) -> void {},
                             tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement, 304, 240>(
@@ -158,7 +141,7 @@ int main(int argc, char* argv[]) {
                                         timeDelta,
                                     };
                                 },
-                                tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, decay>(
+                                tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, 10000>(
                                     [
                                         firstTimestamp,
                                         lastTimestamp,
@@ -180,7 +163,6 @@ int main(int argc, char* argv[]) {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
-                        command.arguments[0],
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();
@@ -277,8 +259,9 @@ int main(int argc, char* argv[]) {
 
                     // retrieve change detections
                     auto eventStreamObservable = sepia::make_eventStreamObservable(
+                        command.arguments[0],
                         sepia::make_split(
-                            tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, decay>(
+                            tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
                                 [firstTimestamp, lastTimestamp, &colorEvents](sepia::ChangeDetection changeDetection) -> void {
                                     if (changeDetection.timestamp >= lastTimestamp) {
                                         throw sepia::EndOfFile(); // throw to stop the event stream observable
@@ -297,7 +280,6 @@ int main(int argc, char* argv[]) {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
-                        command.arguments[0],
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();
@@ -315,7 +297,8 @@ int main(int argc, char* argv[]) {
 
                     // retrieve color events
                     auto eventStreamObservable = sepia::make_colorEventStreamObservable(
-                        tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, decay>(
+                        command.arguments[0],
+                        tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
                             [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
                                 if (colorEvent.timestamp >= lastTimestamp) {
                                     throw sepia::EndOfFile(); // throw to stop the event stream observable
@@ -334,7 +317,6 @@ int main(int argc, char* argv[]) {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
-                        command.arguments[0],
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();
@@ -427,7 +409,6 @@ int main(int argc, char* argv[]) {
             "Available options:\n"
             "    -t [timestamp], --timestamp [timestamp]      sets the initial timestamp for the point cloud (defaults to 0)\n"
             "    -d [duration], --duration [duration]         sets the duration (in microseconds) for the point cloud (defaults to 1000000)\n"
-            "    -e [decay], --decay [decay]                  sets the decay used by the maskIsolated handler (defaults to 10000)\n"
             "    -m [mode], --mode [mode]                     sets the mode (one of 'grey', 'change', 'color', defaults to 'grey')\n"
             "                                                     grey: generates points from exposure measurements, requires an ATIS event stream\n"
             "                                                     change: generates points from change detections, requires an ATIS event stream\n"

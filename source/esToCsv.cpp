@@ -24,6 +24,7 @@ int main(int argc, char* argv[]) {
             lock.lock();
             auto eventStreamObservableException = std::current_exception();
             auto eventStreamObservable = sepia::make_eventStreamObservable(
+                command.arguments[0],
                 [&csvFile](sepia::Event event) -> void {
                     csvFile << event.x << ",\t" << event.y << ",\t" << event.timestamp << ",\t" << event.isThresholdCrossing << ",\t" << event.polarity << "\n";
                 },
@@ -31,7 +32,6 @@ int main(int argc, char* argv[]) {
                     eventStreamObservableException = exception;
                     lock.unlock();
                 },
-                command.arguments[0],
                 sepia::EventStreamObservable::Dispatch::asFastAsPossible
             );
             lock.lock();
