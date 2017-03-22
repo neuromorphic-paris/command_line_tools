@@ -8,6 +8,7 @@
 #include <array>
 #include <algorithm>
 #include <limits>
+#include <mutex>
 
 /// ExposureMeasurement represents an exposure measurement as a time delta.
 struct ExposureMeasurement {
