@@ -106,231 +106,227 @@ int main(int argc, char* argv[]) {
             lock.lock();
             auto eventStreamObservableException = std::current_exception();
 
-            switch (mode) {
-                case Mode::grey: {
 
-                    // retrieve the tone mapping discard ratio
-                    auto ratio = 0.05;
-                    {
-                        const auto ratioCandidate = command.options.find("ratio");
-                        if (ratioCandidate != command.options.end()) {
-                            try {
-                                ratio = std::stod(ratioCandidate->second);
-                                if (ratio < 0 || ratio >= 1) {
-                                    throw std::runtime_error("[ratio] must be a real number in the range [0, 1[ (got '" + ratioCandidate->second + "')");
-                                }
-                            } catch (const std::invalid_argument&) {
+            if (mode == Mode::grey) {
+
+                // retrieve the tone mapping discard ratio
+                auto ratio = 0.05;
+                {
+                    const auto ratioCandidate = command.options.find("ratio");
+                    if (ratioCandidate != command.options.end()) {
+                        try {
+                            ratio = std::stod(ratioCandidate->second);
+                            if (ratio < 0 || ratio >= 1) {
                                 throw std::runtime_error("[ratio] must be a real number in the range [0, 1[ (got '" + ratioCandidate->second + "')");
                             }
+                        } catch (const std::invalid_argument&) {
+                            throw std::runtime_error("[ratio] must be a real number in the range [0, 1[ (got '" + ratioCandidate->second + "')");
                         }
                     }
+                }
 
-                    // retrieve exposure measurements (non-tone-mapped yet)
-                    auto exposureMeasurements = std::vector<ExposureMeasurement>();
-                    auto timeDeltasBaseFrame = std::array<uint64_t, 304 * 240>();
-                    timeDeltasBaseFrame.fill(std::numeric_limits<uint64_t>::max());
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
-                        command.arguments[0],
-                        sepia::make_split(
-                            [](sepia::ChangeDetection) -> void {},
-                            tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement, 304, 240>(
-                                [](sepia::ThresholdCrossing secondThresholdCrossing, uint64_t timeDelta) -> ExposureMeasurement {
-                                    return ExposureMeasurement{
-                                        secondThresholdCrossing.x,
-                                        secondThresholdCrossing.y,
-                                        secondThresholdCrossing.timestamp,
-                                        timeDelta,
-                                    };
-                                },
-                                tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, 10000>(
-                                    [
-                                        firstTimestamp,
-                                        lastTimestamp,
-                                        &exposureMeasurements,
-                                        &timeDeltasBaseFrame
-                                    ](ExposureMeasurement exposureMeasurement) -> void {
-                                        if (exposureMeasurement.timestamp >= lastTimestamp) {
-                                            throw sepia::EndOfFile(); // throw to stop the event stream observable
-                                        } else if (exposureMeasurement.timestamp >= firstTimestamp) {
-                                            exposureMeasurements.push_back(exposureMeasurement);
-                                        } else {
-                                            timeDeltasBaseFrame[exposureMeasurement.x + 304 * (240 - 1 - exposureMeasurement.y)] = exposureMeasurement.timeDelta;
-                                        }
+                // retrieve exposure measurements (non-tone-mapped yet)
+                auto exposureMeasurements = std::vector<ExposureMeasurement>();
+                auto timeDeltasBaseFrame = std::array<uint64_t, 304 * 240>();
+                timeDeltasBaseFrame.fill(std::numeric_limits<uint64_t>::max());
+                auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    command.arguments[0],
+                    sepia::make_split(
+                        [](sepia::ChangeDetection) -> void {},
+                        tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement, 304, 240>(
+                            [](sepia::ThresholdCrossing secondThresholdCrossing, uint64_t timeDelta) -> ExposureMeasurement {
+                                return ExposureMeasurement{
+                                    secondThresholdCrossing.x,
+                                    secondThresholdCrossing.y,
+                                    secondThresholdCrossing.timestamp,
+                                    timeDelta,
+                                };
+                            },
+                            tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, 10000>(
+                                [
+                                    firstTimestamp,
+                                    lastTimestamp,
+                                    &exposureMeasurements,
+                                    &timeDeltasBaseFrame
+                                ](ExposureMeasurement exposureMeasurement) -> void {
+                                    if (exposureMeasurement.timestamp >= lastTimestamp) {
+                                        throw sepia::EndOfFile(); // throw to stop the event stream observable
+                                    } else if (exposureMeasurement.timestamp >= firstTimestamp) {
+                                        exposureMeasurements.push_back(exposureMeasurement);
+                                    } else {
+                                        timeDeltasBaseFrame[exposureMeasurement.x + 304 * (240 - 1 - exposureMeasurement.y)] = exposureMeasurement.timeDelta;
                                     }
-                                )
+                                }
                             )
-                        ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
-                            eventStreamObservableException = exception;
-                            lock.unlock();
-                        },
-                        sepia::EventStreamObservable::Dispatch::asFastAsPossible
-                    );
-                    lock.lock();
-                    lock.unlock();
-                    try {
-                        std::rethrow_exception(eventStreamObservableException);
-                    } catch (const sepia::EndOfFile&) {
-                        if (exposureMeasurements.empty()) {
-                            throw std::runtime_error("no threshold crossings are present in the given time interval");
-                        }
+                        )
+                    ),
+                    [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        eventStreamObservableException = exception;
+                        lock.unlock();
+                    },
+                    sepia::EventStreamObservable::Dispatch::asFastAsPossible
+                );
+                lock.lock();
+                lock.unlock();
+                try {
+                    std::rethrow_exception(eventStreamObservableException);
+                } catch (const sepia::EndOfFile&) {
+                    if (exposureMeasurements.empty()) {
+                        throw std::runtime_error("no threshold crossings are present in the given time interval");
+                    }
 
-                        // compute tone-mapping slope and intercept
-                        auto slope = 0.0;
-                        auto intercept = 128.0;
-                        {
-                            auto timeDeltas = std::vector<uint64_t>();
-                            timeDeltas.resize(exposureMeasurements.size());
-                            std::transform(
-                                exposureMeasurements.begin(),
-                                exposureMeasurements.end(),
-                                timeDeltas.begin(),
-                                [](ExposureMeasurement exposureMeasurement) -> uint64_t {
-                                    return exposureMeasurement.timeDelta;
-                                }
-                            );
-                            timeDeltas.reserve(timeDeltas.size() + timeDeltasBaseFrame.size());
-                            for (auto&& timeDelta : timeDeltasBaseFrame) {
-                                if (timeDelta < std::numeric_limits<uint64_t>::max()) {
-                                    timeDeltas.push_back(timeDelta);
-                                }
-                            }
-                            auto discardedTimeDeltas = std::vector<uint64_t>(
-                                static_cast<std::size_t>((exposureMeasurements.size() + 304 * 240) * ratio)
-                            );
-                            std::partial_sort_copy(
-                                timeDeltas.begin(),
-                                timeDeltas.end(),
-                                discardedTimeDeltas.begin(),
-                                discardedTimeDeltas.end()
-                            );
-                            auto whiteDiscard = discardedTimeDeltas.back();
-                            const auto whiteDiscardFallback = discardedTimeDeltas.front();
-                            std::partial_sort_copy(
-                                timeDeltas.begin(),
-                                timeDeltas.end(),
-                                discardedTimeDeltas.begin(),
-                                discardedTimeDeltas.end(),
-                                std::greater<uint64_t>()
-                            );
-                            auto blackDiscard = discardedTimeDeltas.back();
-                            const auto blackDiscardFallback = discardedTimeDeltas.front();
-
-                            if (blackDiscard <= whiteDiscard) {
-                                whiteDiscard = whiteDiscardFallback;
-                                blackDiscard = blackDiscardFallback;
-                            }
-                            if (blackDiscard > whiteDiscard) {
-                                const auto delta = std::log(static_cast<double>(blackDiscard) / static_cast<double>(whiteDiscard));
-                                slope = -255.0 / delta;
-                                intercept = 255.0 * std::log(static_cast<double>(blackDiscard)) / delta;
-                            }
-                        }
-                        for (auto timeDeltaIterator = timeDeltasBaseFrame.begin(); timeDeltaIterator != timeDeltasBaseFrame.end(); ++timeDeltaIterator) {
-                            const auto exposureCandidate = slope * std::log(*timeDeltaIterator) + intercept;
-                            const auto exposure = static_cast<uint8_t>(exposureCandidate > 255 ? 255 : (exposureCandidate < 0 ? 0 : exposureCandidate));
-                            const auto index = (timeDeltaIterator - timeDeltasBaseFrame.begin()) * 4;
-                            baseFrame[index] = exposure;
-                            baseFrame[index + 1] = exposure;
-                            baseFrame[index + 2] = exposure;
-                            baseFrame[index + 3] = 0xff;
-                        }
-                        colorEvents.resize(exposureMeasurements.size());
+                    // compute tone-mapping slope and intercept
+                    auto slope = 0.0;
+                    auto intercept = 128.0;
+                    {
+                        auto timeDeltas = std::vector<uint64_t>();
+                        timeDeltas.resize(exposureMeasurements.size());
                         std::transform(
                             exposureMeasurements.begin(),
                             exposureMeasurements.end(),
-                            colorEvents.begin(),
-                            [slope, intercept](const ExposureMeasurement& exposureMeasurement) -> sepia::ColorEvent {
-                                const auto exposureCandidate = slope * std::log(exposureMeasurement.timeDelta) + intercept;
-                                const auto exposure = static_cast<uint8_t>(exposureCandidate > 255 ? 255 : (exposureCandidate < 0 ? 0 : exposureCandidate));
-                                return sepia::ColorEvent{
-                                    exposureMeasurement.x,
-                                    exposureMeasurement.y,
-                                    exposureMeasurement.timestamp,
-                                    exposure,
-                                    exposure,
-                                    exposure
-                                };
+                            timeDeltas.begin(),
+                            [](ExposureMeasurement exposureMeasurement) -> uint64_t {
+                                return exposureMeasurement.timeDelta;
                             }
                         );
-                    }
-                    break;
-                }
-                case Mode::change: {
+                        timeDeltas.reserve(timeDeltas.size() + timeDeltasBaseFrame.size());
+                        for (auto&& timeDelta : timeDeltasBaseFrame) {
+                            if (timeDelta < std::numeric_limits<uint64_t>::max()) {
+                                timeDeltas.push_back(timeDelta);
+                            }
+                        }
+                        auto discardedTimeDeltas = std::vector<uint64_t>(
+                            static_cast<std::size_t>((exposureMeasurements.size() + 304 * 240) * ratio)
+                        );
+                        std::partial_sort_copy(
+                            timeDeltas.begin(),
+                            timeDeltas.end(),
+                            discardedTimeDeltas.begin(),
+                            discardedTimeDeltas.end()
+                        );
+                        auto whiteDiscard = discardedTimeDeltas.back();
+                        const auto whiteDiscardFallback = discardedTimeDeltas.front();
+                        std::partial_sort_copy(
+                            timeDeltas.begin(),
+                            timeDeltas.end(),
+                            discardedTimeDeltas.begin(),
+                            discardedTimeDeltas.end(),
+                            std::greater<uint64_t>()
+                        );
+                        auto blackDiscard = discardedTimeDeltas.back();
+                        const auto blackDiscardFallback = discardedTimeDeltas.front();
 
-                    // retrieve change detections
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
-                        command.arguments[0],
-                        sepia::make_split(
-                            tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
-                                [firstTimestamp, lastTimestamp, &colorEvents](sepia::ChangeDetection changeDetection) -> void {
-                                    if (changeDetection.timestamp >= lastTimestamp) {
-                                        throw sepia::EndOfFile(); // throw to stop the event stream observable
-                                    } else if (changeDetection.timestamp >= firstTimestamp) {
-                                        if (changeDetection.isIncrease) {
-                                            colorEvents.push_back(sepia::ColorEvent{changeDetection.x, changeDetection.y, changeDetection.timestamp, 0xdd, 0xdd, 0xdd});
-                                        } else {
-                                            colorEvents.push_back(sepia::ColorEvent{changeDetection.x, changeDetection.y, changeDetection.timestamp, 0x22, 0x22, 0x22});
-                                        }
-                                    }
-                                }
-                            ),
-                            [](sepia::ThresholdCrossing) -> void {}
-                        ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
-                            eventStreamObservableException = exception;
-                            lock.unlock();
-                        },
-                        sepia::EventStreamObservable::Dispatch::asFastAsPossible
-                    );
-                    lock.lock();
-                    lock.unlock();
-                    try {
-                        std::rethrow_exception(eventStreamObservableException);
-                    } catch (const sepia::EndOfFile&) {
-                        if (colorEvents.empty()) {
-                            throw std::runtime_error("no change detections are present in the given time interval");
+                        if (blackDiscard <= whiteDiscard) {
+                            whiteDiscard = whiteDiscardFallback;
+                            blackDiscard = blackDiscardFallback;
+                        }
+                        if (blackDiscard > whiteDiscard) {
+                            const auto delta = std::log(static_cast<double>(blackDiscard) / static_cast<double>(whiteDiscard));
+                            slope = -255.0 / delta;
+                            intercept = 255.0 * std::log(static_cast<double>(blackDiscard)) / delta;
                         }
                     }
-                    break;
+                    for (auto timeDeltaIterator = timeDeltasBaseFrame.begin(); timeDeltaIterator != timeDeltasBaseFrame.end(); ++timeDeltaIterator) {
+                        const auto exposureCandidate = slope * std::log(*timeDeltaIterator) + intercept;
+                        const auto exposure = static_cast<uint8_t>(exposureCandidate > 255 ? 255 : (exposureCandidate < 0 ? 0 : exposureCandidate));
+                        const auto index = (timeDeltaIterator - timeDeltasBaseFrame.begin()) * 4;
+                        baseFrame[index] = exposure;
+                        baseFrame[index + 1] = exposure;
+                        baseFrame[index + 2] = exposure;
+                        baseFrame[index + 3] = 0xff;
+                    }
+                    colorEvents.resize(exposureMeasurements.size());
+                    std::transform(
+                        exposureMeasurements.begin(),
+                        exposureMeasurements.end(),
+                        colorEvents.begin(),
+                        [slope, intercept](const ExposureMeasurement& exposureMeasurement) -> sepia::ColorEvent {
+                            const auto exposureCandidate = slope * std::log(exposureMeasurement.timeDelta) + intercept;
+                            const auto exposure = static_cast<uint8_t>(exposureCandidate > 255 ? 255 : (exposureCandidate < 0 ? 0 : exposureCandidate));
+                            return sepia::ColorEvent{
+                                exposureMeasurement.x,
+                                exposureMeasurement.y,
+                                exposureMeasurement.timestamp,
+                                exposure,
+                                exposure,
+                                exposure
+                            };
+                        }
+                    );
                 }
-                case Mode::color: {
+            } else if (mode == Mode::change) {
 
-                    // retrieve color events
-                    auto eventStreamObservable = sepia::make_colorEventStreamObservable(
-                        command.arguments[0],
-                        tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
-                            [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
-                                if (colorEvent.timestamp >= lastTimestamp) {
+                // retrieve change detections
+                auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    command.arguments[0],
+                    sepia::make_split(
+                        tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
+                            [firstTimestamp, lastTimestamp, &colorEvents](sepia::ChangeDetection changeDetection) -> void {
+                                if (changeDetection.timestamp >= lastTimestamp) {
                                     throw sepia::EndOfFile(); // throw to stop the event stream observable
-                                } else if (colorEvent.timestamp >= firstTimestamp) {
-                                    colorEvents.push_back(colorEvent);
-                                } else {
-                                    const auto index = (colorEvent.x + 304 * (240 - 1 - colorEvent.y)) * 4;
-                                    baseFrame[index] = colorEvent.r;
-                                    baseFrame[index + 1] = colorEvent.g;
-                                    baseFrame[index + 2] = colorEvent.b;
-                                    baseFrame[index + 3] = 0xff;
+                                } else if (changeDetection.timestamp >= firstTimestamp) {
+                                    if (changeDetection.isIncrease) {
+                                        colorEvents.push_back(sepia::ColorEvent{changeDetection.x, changeDetection.y, changeDetection.timestamp, 0xdd, 0xdd, 0xdd});
+                                    } else {
+                                        colorEvents.push_back(sepia::ColorEvent{changeDetection.x, changeDetection.y, changeDetection.timestamp, 0x22, 0x22, 0x22});
+                                    }
                                 }
                             }
                         ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
-                            eventStreamObservableException = exception;
-                            lock.unlock();
-                        },
-                        sepia::EventStreamObservable::Dispatch::asFastAsPossible
-                    );
-                    lock.lock();
-                    lock.unlock();
-                    try {
-                        std::rethrow_exception(eventStreamObservableException);
-                    } catch (const sepia::EndOfFile&) {
-                        if (colorEvents.empty()) {
-                            throw std::runtime_error("no color events are present in the given time interval");
-                        }
+                        [](sepia::ThresholdCrossing) -> void {}
+                    ),
+                    [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        eventStreamObservableException = exception;
+                        lock.unlock();
+                    },
+                    sepia::EventStreamObservable::Dispatch::asFastAsPossible
+                );
+                lock.lock();
+                lock.unlock();
+                try {
+                    std::rethrow_exception(eventStreamObservableException);
+                } catch (const sepia::EndOfFile&) {
+                    if (colorEvents.empty()) {
+                        throw std::runtime_error("no change detections are present in the given time interval");
                     }
-                    break;
                 }
+            } else if (mode == Mode::color) {
+
+                // retrieve color events
+                auto eventStreamObservable = sepia::make_colorEventStreamObservable(
+                    command.arguments[0],
+                    tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
+                        [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
+                            if (colorEvent.timestamp >= lastTimestamp) {
+                                throw sepia::EndOfFile(); // throw to stop the event stream observable
+                            } else if (colorEvent.timestamp >= firstTimestamp) {
+                                colorEvents.push_back(colorEvent);
+                            } else {
+                                const auto index = (colorEvent.x + 304 * (240 - 1 - colorEvent.y)) * 4;
+                                baseFrame[index] = colorEvent.r;
+                                baseFrame[index + 1] = colorEvent.g;
+                                baseFrame[index + 2] = colorEvent.b;
+                                baseFrame[index + 3] = 0xff;
+                            }
+                        }
+                    ),
+                    [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        eventStreamObservableException = exception;
+                        lock.unlock();
+                    },
+                    sepia::EventStreamObservable::Dispatch::asFastAsPossible
+                );
+                lock.lock();
+                lock.unlock();
+                try {
+                    std::rethrow_exception(eventStreamObservableException);
+                } catch (const sepia::EndOfFile&) {
+                    if (colorEvents.empty()) {
+                        throw std::runtime_error("no color events are present in the given time interval");
+                    }
+                }
+            } else {
+                throw std::logic_error("unhandled mode");
             }
 
             // retrieve the frametime
