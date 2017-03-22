@@ -105,8 +105,6 @@ int main(int argc, char* argv[]) {
             std::mutex lock;
             lock.lock();
             auto eventStreamObservableException = std::current_exception();
-
-
             if (mode == Mode::grey) {
 
                 // retrieve the tone mapping discard ratio
@@ -257,7 +255,7 @@ int main(int argc, char* argv[]) {
             } else if (mode == Mode::change) {
 
                 // retrieve change detections
-                auto eventStreamObservable = sepia::make_eventStreamObservable(
+                auto changeEventStreamObservable = sepia::make_eventStreamObservable(
                     command.arguments[0],
                     sepia::make_split(
                         tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
@@ -293,7 +291,7 @@ int main(int argc, char* argv[]) {
             } else if (mode == Mode::color) {
 
                 // retrieve color events
-                auto eventStreamObservable = sepia::make_colorEventStreamObservable(
+                auto colorEventStreamObservable = sepia::make_colorEventStreamObservable(
                     command.arguments[0],
                     tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
                         [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
