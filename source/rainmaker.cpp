@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
             } else if (mode == Mode::change) {
 
                 // retrieve change detections
-                auto changeEventStreamObservable = sepia::make_eventStreamObservable(
+                auto eventStreamObservable = sepia::make_eventStreamObservable(
                     command.arguments[0],
                     sepia::make_split(
                         tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
