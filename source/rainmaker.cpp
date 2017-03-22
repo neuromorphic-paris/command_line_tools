@@ -8,6 +8,7 @@
 #include <array>
 #include <algorithm>
 #include <limits>
+#include <mutex>
 
 /// ExposureMeasurement represents an exposure measurement as a time delta.
 struct ExposureMeasurement {
@@ -296,7 +297,7 @@ int main(int argc, char* argv[]) {
                 case Mode::color: {
 
                     // retrieve color events
-                    auto eventStreamObservable = sepia::make_colorEventStreamObservable(
+                    auto colorEventStreamObservable = sepia::make_colorEventStreamObservable(
                         command.arguments[0],
                         tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
                             [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {

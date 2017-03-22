@@ -27,6 +27,7 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
@@ -59,6 +60,7 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
@@ -123,6 +125,7 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
