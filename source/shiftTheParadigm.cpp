@@ -173,14 +173,15 @@ int main(int argc, char* argv[]) {
                 for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
-                        const auto filename = (
-                            std::stringstream()
+                        std::stringstream filenameStream;
+                        filenameStream
                             << beforeSharps
                             << std::setfill('0')
                             << std::setw(static_cast<int>(numberOfSharps))
                             << frameIndex
                             << afterSharps
-                        ).str();
+                        ;
+                        const auto filename = filenameStream.str();
                         uint32_t width = 0;
                         uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
@@ -247,14 +248,15 @@ int main(int argc, char* argv[]) {
                 for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
-                        const auto filename = (
-                            std::stringstream()
+                        std::stringstream filenameStream;
+                        filenameStream
                             << beforeSharps
                             << std::setfill('0')
                             << std::setw(static_cast<int>(numberOfSharps))
                             << frameIndex
                             << afterSharps
-                        ).str();
+                        ;
+                        const auto filename = filenameStream.str();
                         uint32_t width = 0;
                         uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
@@ -347,14 +349,15 @@ int main(int argc, char* argv[]) {
                 for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
-                        const auto filename = (
-                            std::stringstream()
+                        std::stringstream filenameStream;
+                        filenameStream
                             << beforeSharps
                             << std::setfill('0')
                             << std::setw(static_cast<int>(numberOfSharps))
                             << frameIndex
                             << afterSharps
-                        ).str();
+                        ;
+                        const auto filename = filenameStream.str();
                         uint32_t width = 0;
                         uint32_t height = 0;
                         const auto error = lodepng::decode(frame, width, height, filename);
