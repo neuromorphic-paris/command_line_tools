@@ -55,6 +55,32 @@ int main(int argc, char* argv[]) {
             }
 
             sepia::EventStreamWriter eventStreamWriter;
+            std::size_t eventsSinceLastPrint = std::numeric_limits<std::size_t>::max();
+            auto wrappedEventStreamWriter = [&](sepia::Event event) {
+                if (eventsSinceLastPrint >= 1000) {
+                    eventsSinceLastPrint = 0;
+                    const auto timestampString = std::to_string(event.timestamp);
+                    auto separatedTimestampString = std::string();
+                    if (timestampString.size() > 3) {
+                        const auto begin = std::next(timestampString.begin(), timestampString.size() - (timestampString.size() / 3) * 3);
+                        separatedTimestampString = std::string(timestampString.begin(), begin);
+                        separatedTimestampString.reserve(timestampString.size() + ((timestampString.size() - 1) / 3));
+                        for (auto characterIterator = begin; characterIterator != timestampString.end(); ++characterIterator) {
+                            if (std::distance(begin, characterIterator) % 3 == 0) {
+                                separatedTimestampString.push_back('.');
+                            }
+                            separatedTimestampString.push_back(*characterIterator);
+                        }
+                    } else {
+                        separatedTimestampString = timestampString;
+                    }
+                    std::cout << "\r" << separatedTimestampString << " microseconds converted";
+                    std::cout.flush();
+                } else {
+                    ++eventsSinceLastPrint;
+                }
+                eventStreamWriter(event);
+            };
             eventStreamWriter.open(command.arguments[2]);
 
             auto tdBytes = std::array<unsigned char, 8>();
@@ -100,33 +126,61 @@ int main(int argc, char* argv[]) {
             auto tdEvent = sepia::Event{};
             auto apsEvent = sepia::Event{};
             auto status = Status::tdLate;
+
+            uint64_t previousTimestamp = 0;
+            auto thresholdsTimestamps = std::array<uint64_t, 304 * 240>();
+            thresholdsTimestamps.fill(0);
+
             if (!tdEnabled || tdFile.eof()) {
                 status = Status::tdEndOfFile;
             } else {
-                tdEvent = sepia::Event{
-                    static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
-                    static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                    static_cast<uint64_t>(tdBytes[0])
-                    | (static_cast<int64_t>(tdBytes[1]) << 8)
-                    | (static_cast<int64_t>(tdBytes[2]) << 16)
-                    | (static_cast<int64_t>(tdBytes[3]) << 24),
-                    false,
-                    ((tdBytes[6] & 0x2) >> 1) == 0x01,
-                };
+                for (;;) {
+                    tdEvent = sepia::Event{
+                        static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
+                        static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
+                        static_cast<uint64_t>(tdBytes[0])
+                        | (static_cast<int64_t>(tdBytes[1]) << 8)
+                        | (static_cast<int64_t>(tdBytes[2]) << 16)
+                        | (static_cast<int64_t>(tdBytes[3]) << 24),
+                        false,
+                        ((tdBytes[6] & 0x2) >> 1) == 0x01,
+                    };
+                    if (tdEvent.timestamp >= previousTimestamp) {
+                        previousTimestamp = tdEvent.timestamp;
+                        break;
+                    }
+                    tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
+                    if (tdFile.eof()) {
+                        status = Status::tdEndOfFile;
+                        break;
+                    }
+                }
             }
             if (!apsEnabled || apsFile.eof()) {
                 status = Status::apsEndOfFile;
             } else {
-                apsEvent = sepia::Event{
-                    static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
-                    static_cast<uint16_t>(((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1)),
-                    static_cast<uint32_t>(apsBytes[0])
-                    | (static_cast<uint32_t>(apsBytes[1]) << 8)
-                    | (static_cast<uint32_t>(apsBytes[2]) << 16)
-                    | (static_cast<uint32_t>(apsBytes[3]) << 24),
-                    true,
-                    ((apsBytes[6] & 0x2) >> 1) == 0x01,
-                };
+                for (;;) {
+                    apsEvent = sepia::Event{
+                        static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
+                        static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
+                        static_cast<uint32_t>(apsBytes[0])
+                        | (static_cast<uint32_t>(apsBytes[1]) << 8)
+                        | (static_cast<uint32_t>(apsBytes[2]) << 16)
+                        | (static_cast<uint32_t>(apsBytes[3]) << 24),
+                        true,
+                        ((apsBytes[6] & 0x2) >> 1) == 0x01,
+                    };
+                    if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
+                        previousTimestamp = apsEvent.timestamp;
+                        thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
+                        break;
+                    }
+                    apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
+                    if (apsFile.eof()) {
+                        status = Status::apsEndOfFile;
+                        break;
+                    }
+                }
             }
             if (!tdFile.eof() && !apsFile.eof()) {
                 if (tdEvent.timestamp > apsEvent.timestamp) {
@@ -139,89 +193,136 @@ int main(int argc, char* argv[]) {
             for (auto done = false; !done;) {
                 switch (status) {
                     case Status::tdLate: {
-                        eventStreamWriter(tdEvent);
+                        wrappedEventStreamWriter(tdEvent);
                         tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
                         if (tdFile.eof()) {
                             status = Status::tdEndOfFile;
                         } else {
-                            tdEvent = sepia::Event{
-                                static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
-                                static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                                static_cast<uint64_t>(tdBytes[0])
-                                | (static_cast<uint64_t>(tdBytes[1]) << 8)
-                                | (static_cast<uint64_t>(tdBytes[2]) << 16)
-                                | (static_cast<uint64_t>(tdBytes[3]) << 24),
-                                false,
-                                ((tdBytes[6] & 0x2) >> 1) == 0x01,
-                            };
-                            if (tdEvent.timestamp > apsEvent.timestamp) {
-                                status = Status::apsLate;
+                            for (;;) {
+                                tdEvent = sepia::Event{
+                                    static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
+                                    static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
+                                    static_cast<uint64_t>(tdBytes[0])
+                                    | (static_cast<uint64_t>(tdBytes[1]) << 8)
+                                    | (static_cast<uint64_t>(tdBytes[2]) << 16)
+                                    | (static_cast<uint64_t>(tdBytes[3]) << 24),
+                                    false,
+                                    ((tdBytes[6] & 0x2) >> 1) == 0x01,
+                                };
+                                if (tdEvent.timestamp >= previousTimestamp) {
+                                    previousTimestamp = tdEvent.timestamp;
+                                    if (tdEvent.timestamp > apsEvent.timestamp) {
+                                        status = Status::apsLate;
+                                    }
+                                    break;
+                                }
+                                tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
+                                if (tdFile.eof()) {
+                                    status = Status::tdEndOfFile;
+                                    break;
+                                }
                             }
                         }
                         break;
                     }
                     case Status::apsLate: {
-                        eventStreamWriter(apsEvent);
+                        wrappedEventStreamWriter(apsEvent);
                         apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
                         if (apsFile.eof()) {
                             status = Status::apsEndOfFile;
                         } else {
-                            apsEvent = sepia::Event{
-                                static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
-                                static_cast<uint16_t>(((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1)),
-                                static_cast<uint32_t>(apsBytes[0])
-                                | (static_cast<uint32_t>(apsBytes[1]) << 8)
-                                | (static_cast<uint32_t>(apsBytes[2]) << 16)
-                                | (static_cast<uint32_t>(apsBytes[3]) << 24),
-                                true,
-                                ((apsBytes[6] & 0x2) >> 1) == 0x01,
-                            };
-                            if (apsEvent.timestamp >= tdEvent.timestamp) {
-                                status = Status::tdLate;
+                            for (;;) {
+                                apsEvent = sepia::Event{
+                                    static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
+                                    static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
+                                    static_cast<uint32_t>(apsBytes[0])
+                                    | (static_cast<uint32_t>(apsBytes[1]) << 8)
+                                    | (static_cast<uint32_t>(apsBytes[2]) << 16)
+                                    | (static_cast<uint32_t>(apsBytes[3]) << 24),
+                                    true,
+                                    ((apsBytes[6] & 0x2) >> 1) == 0x01,
+                                };
+                                if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
+                                    previousTimestamp = apsEvent.timestamp;
+                                    thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
+                                    if (apsEvent.timestamp >= tdEvent.timestamp) {
+                                        status = Status::tdLate;
+                                    }
+                                    break;
+                                }
+                                apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
+                                if (apsFile.eof()) {
+                                    status = Status::apsEndOfFile;
+                                    break;
+                                }
                             }
                         }
                         break;
                     }
                     case Status::tdEndOfFile: {
-                        eventStreamWriter(apsEvent);
+                        wrappedEventStreamWriter(apsEvent);
                         apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
                         if (apsFile.eof()) {
                             done = true;
                         } else {
-                            apsEvent = sepia::Event{
-                                static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
-                                static_cast<uint16_t>(((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1)),
-                                static_cast<uint32_t>(apsBytes[0])
-                                | (static_cast<uint32_t>(apsBytes[1]) << 8)
-                                | (static_cast<uint32_t>(apsBytes[2]) << 16)
-                                | (static_cast<uint32_t>(apsBytes[3]) << 24),
-                                true,
-                                ((apsBytes[6] & 0x2) >> 1) == 0x01,
-                            };
+                            for (;;) {
+                                apsEvent = sepia::Event{
+                                    static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
+                                    static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
+                                    static_cast<uint32_t>(apsBytes[0])
+                                    | (static_cast<uint32_t>(apsBytes[1]) << 8)
+                                    | (static_cast<uint32_t>(apsBytes[2]) << 16)
+                                    | (static_cast<uint32_t>(apsBytes[3]) << 24),
+                                    true,
+                                    ((apsBytes[6] & 0x2) >> 1) == 0x01,
+                                };
+                                if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
+                                    previousTimestamp = apsEvent.timestamp;
+                                    thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
+                                    break;
+                                }
+                                apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
+                                if (apsFile.eof()) {
+                                    done = true;
+                                    break;
+                                }
+                            }
                         }
                         break;
                     }
                     case Status::apsEndOfFile: {
-                        eventStreamWriter(tdEvent);
+                        wrappedEventStreamWriter(tdEvent);
                         tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
                         if (tdFile.eof()) {
                             done = true;
                         } else {
-                            tdEvent = sepia::Event{
-                                static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
-                                static_cast<uint16_t>(((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1)),
-                                static_cast<uint64_t>(tdBytes[0])
-                                | (static_cast<uint64_t>(tdBytes[1]) << 8)
-                                | (static_cast<uint64_t>(tdBytes[2]) << 16)
-                                | (static_cast<uint64_t>(tdBytes[3]) << 24),
-                                false,
-                                ((tdBytes[6] & 0x2) >> 1) == 0x01,
-                            };
+                            for (;;) {
+                                tdEvent = sepia::Event{
+                                    static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
+                                    static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
+                                    static_cast<uint64_t>(tdBytes[0])
+                                    | (static_cast<uint64_t>(tdBytes[1]) << 8)
+                                    | (static_cast<uint64_t>(tdBytes[2]) << 16)
+                                    | (static_cast<uint64_t>(tdBytes[3]) << 24),
+                                    false,
+                                    ((tdBytes[6] & 0x2) >> 1) == 0x01,
+                                };
+                                if (tdEvent.timestamp >= previousTimestamp) {
+                                    previousTimestamp = tdEvent.timestamp;
+                                    break;
+                                }
+                                tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
+                                if (tdFile.eof()) {
+                                    done = true;
+                                    break;
+                                }
+                            }
                         }
                         break;
                     }
                 }
             }
+            std::cout << "\rThe conversion has successfully completed" << std::endl;
         }
     } catch (const std::runtime_error& exception) {
         showHelp = true;
