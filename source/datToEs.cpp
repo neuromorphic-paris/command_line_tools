@@ -56,6 +56,7 @@ int main(int argc, char* argv[]) {
 
             sepia::EventStreamWriter eventStreamWriter;
             std::size_t eventsSinceLastPrint = std::numeric_limits<std::size_t>::max();
+            uint64_t previousTimestamp = 0;
             auto wrappedEventStreamWriter = [&](sepia::Event event) {
                 if (eventsSinceLastPrint >= 1000) {
                     eventsSinceLastPrint = 0;
@@ -80,6 +81,7 @@ int main(int argc, char* argv[]) {
                     ++eventsSinceLastPrint;
                 }
                 eventStreamWriter(event);
+                previousTimestamp = event.timestamp;
             };
             eventStreamWriter.open(command.arguments[2]);
 
@@ -127,7 +129,6 @@ int main(int argc, char* argv[]) {
             auto apsEvent = sepia::Event{};
             auto status = Status::tdLate;
 
-            uint64_t previousTimestamp = 0;
             auto thresholdsTimestamps = std::array<uint64_t, 304 * 240>();
             thresholdsTimestamps.fill(0);
 
@@ -146,7 +147,6 @@ int main(int argc, char* argv[]) {
                         ((tdBytes[6] & 0x2) >> 1) == 0x01,
                     };
                     if (tdEvent.timestamp >= previousTimestamp) {
-                        previousTimestamp = tdEvent.timestamp;
                         break;
                     }
                     tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
@@ -171,7 +171,6 @@ int main(int argc, char* argv[]) {
                         ((apsBytes[6] & 0x2) >> 1) == 0x01,
                     };
                     if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
-                        previousTimestamp = apsEvent.timestamp;
                         thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
                         break;
                     }
@@ -210,7 +209,6 @@ int main(int argc, char* argv[]) {
                                     ((tdBytes[6] & 0x2) >> 1) == 0x01,
                                 };
                                 if (tdEvent.timestamp >= previousTimestamp) {
-                                    previousTimestamp = tdEvent.timestamp;
                                     if (tdEvent.timestamp > apsEvent.timestamp) {
                                         status = Status::apsLate;
                                     }
@@ -243,7 +241,6 @@ int main(int argc, char* argv[]) {
                                     ((apsBytes[6] & 0x2) >> 1) == 0x01,
                                 };
                                 if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
-                                    previousTimestamp = apsEvent.timestamp;
                                     thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
                                     if (apsEvent.timestamp >= tdEvent.timestamp) {
                                         status = Status::tdLate;
@@ -277,7 +274,6 @@ int main(int argc, char* argv[]) {
                                     ((apsBytes[6] & 0x2) >> 1) == 0x01,
                                 };
                                 if (apsEvent.timestamp >= previousTimestamp && apsEvent.timestamp > thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y]) {
-                                    previousTimestamp = apsEvent.timestamp;
                                     thresholdsTimestamps[apsEvent.x + 304 * apsEvent.y] = apsEvent.timestamp;
                                     break;
                                 }
@@ -308,7 +304,6 @@ int main(int argc, char* argv[]) {
                                     ((tdBytes[6] & 0x2) >> 1) == 0x01,
                                 };
                                 if (tdEvent.timestamp >= previousTimestamp) {
-                                    previousTimestamp = tdEvent.timestamp;
                                     break;
                                 }
                                 tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
