@@ -23,15 +23,26 @@ int main(int argc, char* argv[]) {
             std::mutex lock;
             lock.lock();
             auto eventStreamObservableException = std::current_exception();
-            auto eventStreamObservable = sepia::make_eventStreamObservable(
+            auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                 command.arguments[0],
-                [&csvFile](sepia::Event event) -> void {
-                    csvFile << event.x << ",\t" << event.y << ",\t" << event.timestamp << ",\t" << event.isThresholdCrossing << ",\t" << event.polarity << "\n";
+                [&(sepia::AtisEvent atisEvent) -> void {
+                    csvFile
+                        << atisEvent.x
+                        << ",\t"
+                        << atisEvent.y
+                        << ",\t"
+                        << atisEvent.timestamp
+                        << ",\t"
+                        << atisEvent.isThresholdCrossing
+                        << ",\t"
+                        << atisEvent.polarity
+                    << "\n";
                 },
-                [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                [&](std::exception_ptr exception) -> void {
                     eventStreamObservableException = exception;
                     lock.unlock();
                 },
+                sepia::falseFunction,
                 sepia::EventStreamObservable::Dispatch::asFastAsPossible
             );
             lock.lock();
