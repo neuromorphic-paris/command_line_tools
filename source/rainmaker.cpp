@@ -129,7 +129,7 @@ int main(int argc, char* argv[]) {
                     auto exposureMeasurements = std::vector<ExposureMeasurement>();
                     auto timeDeltasBaseFrame = std::array<uint64_t, 304 * 240>();
                     timeDeltasBaseFrame.fill(std::numeric_limits<uint64_t>::max());
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                         command.arguments[0],
                         sepia::make_split(
                             [](sepia::DvsEvent) -> void {},
@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
                 case Mode::change: {
 
                     // retrieve change detections
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                         command.arguments[0],
                         sepia::make_split(
                             tarsier::make_maskIsolated<sepia::DvsEvent, 304, 240, 10000>(

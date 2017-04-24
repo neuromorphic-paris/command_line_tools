@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
             auto eventStreamObservableException = std::current_exception();
             auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                 command.arguments[0],
-                [&(sepia::AtisEvent atisEvent) -> void {
+                [&](sepia::AtisEvent atisEvent) -> void {
                     csvFile
                         << atisEvent.x
                         << ",\t"
