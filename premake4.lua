@@ -9,10 +9,6 @@ solution 'utilities'
         location 'build'
         files {'source/lodepng.hpp', 'source/html.hpp', 'source/lodepng.cpp', 'source/rainmaker.cpp'}
 
-        -- Define the include paths
-        includedirs {'/usr/local/include'}
-        libdirs {'/usr/local/lib'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -27,12 +23,14 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            includedirs {'/usr/local/include'}
             links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
             buildoptions {'-std=c++11', '-stdlib=libc++'}
             linkoptions {'-std=c++11', '-stdlib=libc++'}
+            includedirs {'/usr/local/include'}
 
 
     project 'esToCsv'
@@ -42,10 +40,6 @@ solution 'utilities'
         location 'build'
         files {'source/esToCsv.cpp'}
 
-        -- Define the include paths
-        includedirs {'/usr/local/include'}
-        libdirs {'/usr/local/lib'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -60,12 +54,14 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            includedirs {'/usr/local/include'}
             links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
             buildoptions {'-std=c++11', '-stdlib=libc++'}
             linkoptions {'-std=c++11', '-stdlib=libc++'}
+            includedirs {'/usr/local/include'}
 
 
     project 'datToEs'
@@ -75,10 +71,6 @@ solution 'utilities'
         location 'build'
         files {'source/datToEs.cpp'}
 
-        -- Define the include paths
-        includedirs {'/usr/local/include'}
-        libdirs {'/usr/local/lib'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -93,11 +85,13 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            includedirs {'/usr/local/include'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
             buildoptions {'-std=c++11', '-stdlib=libc++'}
             linkoptions {'-std=c++11', '-stdlib=libc++'}
+            includedirs {'/usr/local/include'}
 
 
     project 'shiftTheParadigm'
@@ -107,10 +101,6 @@ solution 'utilities'
         location 'build'
         files {'source/lodepng.hpp', 'source/lodepng.cpp', 'source/shiftTheParadigm.cpp'}
 
-        -- Define the include paths
-        includedirs {'/usr/local/include'}
-        libdirs {'/usr/local/lib'}
-
         -- Declare the configurations
         configuration 'Release'
             targetdir 'build/Release'
@@ -125,9 +115,11 @@ solution 'utilities'
         configuration 'linux'
             buildoptions {'-std=c++11'}
             linkoptions {'-std=c++11'}
+            includedirs {'/usr/local/include'}
             links {'pthread'}
 
         -- Mac OS X specific settings
         configuration 'macosx'
             buildoptions {'-std=c++11', '-stdlib=libc++'}
             linkoptions {'-std=c++11', '-stdlib=libc++'}
+            includedirs {'/usr/local/include'}

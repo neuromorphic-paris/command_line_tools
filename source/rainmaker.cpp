@@ -129,10 +129,10 @@ int main(int argc, char* argv[]) {
                     auto exposureMeasurements = std::vector<ExposureMeasurement>();
                     auto timeDeltasBaseFrame = std::array<uint64_t, 304 * 240>();
                     timeDeltasBaseFrame.fill(std::numeric_limits<uint64_t>::max());
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                         command.arguments[0],
                         sepia::make_split(
-                            [](sepia::ChangeDetection) -> void {},
+                            [](sepia::DvsEvent) -> void {},
                             tarsier::make_stitch<sepia::ThresholdCrossing, ExposureMeasurement, 304, 240>(
                                 [](sepia::ThresholdCrossing secondThresholdCrossing, uint64_t timeDelta) -> ExposureMeasurement {
                                     return ExposureMeasurement{
@@ -143,12 +143,7 @@ int main(int argc, char* argv[]) {
                                     };
                                 },
                                 tarsier::make_maskIsolated<ExposureMeasurement, 304, 240, 10000>(
-                                    [
-                                        firstTimestamp,
-                                        lastTimestamp,
-                                        &exposureMeasurements,
-                                        &timeDeltasBaseFrame
-                                    ](ExposureMeasurement exposureMeasurement) -> void {
+                                    [&](ExposureMeasurement exposureMeasurement) -> void {
                                         if (exposureMeasurement.timestamp >= lastTimestamp) {
                                             throw sepia::EndOfFile(); // throw to stop the event stream observable
                                         } else if (exposureMeasurement.timestamp >= firstTimestamp) {
@@ -160,10 +155,11 @@ int main(int argc, char* argv[]) {
                                 )
                             )
                         ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        [&](std::exception_ptr exception) -> void {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
+                        sepia::falseFunction,
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();
@@ -259,11 +255,11 @@ int main(int argc, char* argv[]) {
                 case Mode::change: {
 
                     // retrieve change detections
-                    auto eventStreamObservable = sepia::make_eventStreamObservable(
+                    auto atisEventStreamObservable = sepia::make_atisEventStreamObservable(
                         command.arguments[0],
                         sepia::make_split(
-                            tarsier::make_maskIsolated<sepia::ChangeDetection, 304, 240, 10000>(
-                                [firstTimestamp, lastTimestamp, &colorEvents](sepia::ChangeDetection changeDetection) -> void {
+                            tarsier::make_maskIsolated<sepia::DvsEvent, 304, 240, 10000>(
+                                [&](sepia::DvsEvent changeDetection) -> void {
                                     if (changeDetection.timestamp >= lastTimestamp) {
                                         throw sepia::EndOfFile(); // throw to stop the event stream observable
                                     } else if (changeDetection.timestamp >= firstTimestamp) {
@@ -277,10 +273,11 @@ int main(int argc, char* argv[]) {
                             ),
                             [](sepia::ThresholdCrossing) -> void {}
                         ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        [&](std::exception_ptr exception) -> void {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
+                        sepia::falseFunction,
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();
@@ -300,7 +297,7 @@ int main(int argc, char* argv[]) {
                     auto colorEventStreamObservable = sepia::make_colorEventStreamObservable(
                         command.arguments[0],
                         tarsier::make_maskIsolated<sepia::ColorEvent, 304, 240, 10000>(
-                            [firstTimestamp, lastTimestamp, &colorEvents, &baseFrame](sepia::ColorEvent colorEvent) -> void {
+                            [&](sepia::ColorEvent colorEvent) -> void {
                                 if (colorEvent.timestamp >= lastTimestamp) {
                                     throw sepia::EndOfFile(); // throw to stop the event stream observable
                                 } else if (colorEvent.timestamp >= firstTimestamp) {
@@ -314,10 +311,11 @@ int main(int argc, char* argv[]) {
                                 }
                             }
                         ),
-                        [&lock, &eventStreamObservableException](std::exception_ptr exception) -> void {
+                        [&](std::exception_ptr exception) -> void {
                             eventStreamObservableException = exception;
                             lock.unlock();
                         },
+                        sepia::falseFunction,
                         sepia::EventStreamObservable::Dispatch::asFastAsPossible
                     );
                     lock.lock();

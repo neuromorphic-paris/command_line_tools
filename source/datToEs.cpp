@@ -54,13 +54,13 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            sepia::EventStreamWriter eventStreamWriter;
+            sepia::AtisEventStreamWriter atisEventStreamWriter;
             std::size_t eventsSinceLastPrint = std::numeric_limits<std::size_t>::max();
             uint64_t previousTimestamp = 0;
-            auto wrappedEventStreamWriter = [&](sepia::Event event) {
+            auto wrappedEventStreamWriter = [&](sepia::AtisEvent atisEvent) {
                 if (eventsSinceLastPrint >= 1000) {
                     eventsSinceLastPrint = 0;
-                    const auto timestampString = std::to_string(event.timestamp);
+                    const auto timestampString = std::to_string(atisEvent.timestamp);
                     auto separatedTimestampString = std::string();
                     if (timestampString.size() > 3) {
                         const auto begin = std::next(timestampString.begin(), timestampString.size() - (timestampString.size() / 3) * 3);
@@ -80,10 +80,10 @@ int main(int argc, char* argv[]) {
                 } else {
                     ++eventsSinceLastPrint;
                 }
-                eventStreamWriter(event);
-                previousTimestamp = event.timestamp;
+                atisEventStreamWriter(atisEvent);
+                previousTimestamp = atisEvent.timestamp;
             };
-            eventStreamWriter.open(command.arguments[2]);
+            atisEventStreamWriter.open(command.arguments[2]);
 
             auto tdBytes = std::array<unsigned char, 8>();
             auto apsBytes = std::array<unsigned char, 8>();
@@ -125,8 +125,8 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("Both the td file and the aps file are empty");
             }
 
-            auto tdEvent = sepia::Event{};
-            auto apsEvent = sepia::Event{};
+            auto tdEvent = sepia::AtisEvent{};
+            auto apsEvent = sepia::AtisEvent{};
             auto status = Status::tdLate;
 
             auto thresholdsTimestamps = std::array<uint64_t, 304 * 240>();
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
                 status = Status::tdEndOfFile;
             } else {
                 for (;;) {
-                    tdEvent = sepia::Event{
+                    tdEvent = sepia::AtisEvent{
                         static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                         static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
                         static_cast<uint64_t>(tdBytes[0])
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
                 status = Status::apsEndOfFile;
             } else {
                 for (;;) {
-                    apsEvent = sepia::Event{
+                    apsEvent = sepia::AtisEvent{
                         static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
                         static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
                         static_cast<uint32_t>(apsBytes[0])
@@ -198,7 +198,7 @@ int main(int argc, char* argv[]) {
                             status = Status::tdEndOfFile;
                         } else {
                             for (;;) {
-                                tdEvent = sepia::Event{
+                                tdEvent = sepia::AtisEvent{
                                     static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                                     static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
                                     static_cast<uint64_t>(tdBytes[0])
@@ -230,7 +230,7 @@ int main(int argc, char* argv[]) {
                             status = Status::apsEndOfFile;
                         } else {
                             for (;;) {
-                                apsEvent = sepia::Event{
+                                apsEvent = sepia::AtisEvent{
                                     static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
                                     static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
                                     static_cast<uint32_t>(apsBytes[0])
@@ -263,7 +263,7 @@ int main(int argc, char* argv[]) {
                             done = true;
                         } else {
                             for (;;) {
-                                apsEvent = sepia::Event{
+                                apsEvent = sepia::AtisEvent{
                                     static_cast<uint16_t>(((static_cast<uint16_t>(apsBytes[5]) & 0x01) << 8) | apsBytes[4]),
                                     static_cast<uint16_t>(240 - 1 - (((apsBytes[6] & 0x01) << 7) | ((apsBytes[5] & 0xfe) >> 1))),
                                     static_cast<uint32_t>(apsBytes[0])
@@ -293,7 +293,7 @@ int main(int argc, char* argv[]) {
                             done = true;
                         } else {
                             for (;;) {
-                                tdEvent = sepia::Event{
+                                tdEvent = sepia::AtisEvent{
                                     static_cast<uint16_t>(((static_cast<uint16_t>(tdBytes[5]) & 0x01) << 8) | tdBytes[4]),
                                     static_cast<uint16_t>(240 - 1 - (((tdBytes[6] & 0x01) << 7) | ((tdBytes[5] & 0xfe) >> 1))),
                                     static_cast<uint64_t>(tdBytes[0])
