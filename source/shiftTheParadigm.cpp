@@ -161,15 +161,15 @@ int main(int argc, char* argv[]) {
             if (command.flags.find("dvs") != command.flags.end()) {
 
                 // open the output
-                sepia::EventStreamWriter eventStreamWriter;
+                sepia::DvsEventStreamWriter eventStreamWriter;
                 eventStreamWriter.open(command.arguments[1]);
-                auto exposures = std::vector<double>(304 * 240, 0.0);
+                auto exposures = std::vector<double>(640 * 480, 0.0);
 
                 // compute constants
                 const auto frameDuration = 1e6 / framerate;
 
                 // load the frames while available
-                auto timestampsThresholds = std::vector<double>(304 * 240, 0);
+                auto timestampsThresholds = std::vector<double>(640 * 480, 0);
                 for (std::size_t frameIndex = 0; frameIndex < std::pow(10, numberOfSharps); ++frameIndex) {
                     auto frame = std::vector<uint8_t>();
                     {
@@ -193,7 +193,7 @@ int main(int argc, char* argv[]) {
                         } else if (error > 0) {
                             throw std::runtime_error("error thrown while decoding '" + filename + "': " + lodepng_error_text(error));
                         }
-                        if (width != 304 || height != 240) {
+                        if (width != 640 || height != 480) {
                             throw std::runtime_error("the file '" + filename + "' does not have the expected dimensions");
                         }
                         std::cout << "Loaded '" << filename << "'" << std::endl;
@@ -209,22 +209,20 @@ int main(int argc, char* argv[]) {
 
                         if (frameIndex * frameDuration >= timestampsThresholds[pixelIndex]) {
                             if (exposureRatio > (1.0 + threshold)) {
-                                eventStreamWriter(sepia::Event{
-                                    static_cast<uint16_t>(pixelIndex % 304),
-                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                eventStreamWriter(sepia::DvsEvent{
+                                    static_cast<uint16_t>(pixelIndex % 640),
+                                    static_cast<uint16_t>(480 - 1 - pixelIndex / 640),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
-                                    false,
-                                    true
+                                    true,
                                 });
                                 exposures[pixelIndex] = lab.l;
                                 timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
                             } else if (exposureRatio < (1.0 - threshold)) {
-                                eventStreamWriter(sepia::Event{
-                                    static_cast<uint16_t>(pixelIndex % 304),
-                                    static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
+                                eventStreamWriter(sepia::DvsEvent{
+                                    static_cast<uint16_t>(pixelIndex % 640),
+                                    static_cast<uint16_t>(480 - 1 - pixelIndex / 640),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
                                     false,
-                                    false
                                 });
                                 exposures[pixelIndex] = lab.l;
                                 timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
@@ -333,7 +331,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // open the output
-                sepia::EventStreamWriter eventStreamWriter;
+                sepia::AtisEventStreamWriter eventStreamWriter;
                 eventStreamWriter.open(command.arguments[1]);
                 auto exposures = std::vector<double>(304 * 240, 0.0);
                 auto charges = std::vector<double>(304 * 240, 0.0);
@@ -374,7 +372,7 @@ int main(int argc, char* argv[]) {
                         }
                         std::cout << "Loaded '" << filename << "'" << std::endl;
                     }
-                    auto secondThresholdCrossings = std::vector<sepia::Event>();
+                    auto secondThresholdCrossings = std::vector<sepia::AtisEvent>();
                     for (auto pixel = frame.begin(); pixel != frame.end(); std::advance(pixel, 4)) {
                         const auto pixelIndex = (pixel - frame.begin()) / 4;
                         const auto lab = rgbToLab(Rgb{*pixel / 255.0, *std::next(pixel, 1) / 255.0, *std::next(pixel, 2) / 255.0});
@@ -386,14 +384,14 @@ int main(int argc, char* argv[]) {
 
                         if (frameIndex * frameDuration >= timestampsThresholds[pixelIndex]) {
                             if (exposureRatio > (1.0 + threshold)) {
-                                eventStreamWriter(sepia::Event{
+                                eventStreamWriter(sepia::AtisEvent{
                                     static_cast<uint16_t>(pixelIndex % 304),
                                     static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
                                     false,
                                     true
                                 });
-                                eventStreamWriter(sepia::Event{
+                                eventStreamWriter(sepia::AtisEvent{
                                     static_cast<uint16_t>(pixelIndex % 304),
                                     static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
@@ -405,14 +403,14 @@ int main(int argc, char* argv[]) {
                                 timestampsThresholds[pixelIndex] = frameIndex * frameDuration + refractory;
                                 acquiring[pixelIndex] = true;
                             } else if (exposureRatio < (1.0 - threshold)) {
-                                eventStreamWriter(sepia::Event{
+                                eventStreamWriter(sepia::AtisEvent{
                                     static_cast<uint16_t>(pixelIndex % 304),
                                     static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
                                     false,
                                     false
                                 });
-                                eventStreamWriter(sepia::Event{
+                                eventStreamWriter(sepia::AtisEvent{
                                     static_cast<uint16_t>(pixelIndex % 304),
                                     static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
                                     static_cast<uint64_t>(frameIndex * frameDuration),
@@ -430,7 +428,7 @@ int main(int argc, char* argv[]) {
                             if (newCharge < 1) {
                                 charges[pixelIndex] = newCharge;
                             } else {
-                                secondThresholdCrossings.push_back(sepia::Event{
+                                secondThresholdCrossings.push_back(sepia::AtisEvent{
                                     static_cast<uint16_t>(pixelIndex % 304),
                                     static_cast<uint16_t>(240 - 1 - pixelIndex / 304),
                                     static_cast<uint64_t>(frameIndex * frameDuration + (1 - charges[pixelIndex]) / (chargeRatio * lab.l + chargeConstant)),
@@ -442,7 +440,7 @@ int main(int argc, char* argv[]) {
                             }
                         }
                     }
-                    std::sort(secondThresholdCrossings.begin(), secondThresholdCrossings.end(), [](const sepia::Event& first, const sepia::Event& second) {
+                    std::sort(secondThresholdCrossings.begin(), secondThresholdCrossings.end(), [](const sepia::AtisEvent& first, const sepia::AtisEvent& second) {
                         return first.timestamp < second.timestamp;
                     });
                     for (auto&& event : secondThresholdCrossings) {
