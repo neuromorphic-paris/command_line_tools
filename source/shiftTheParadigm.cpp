@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
                 numberOfSharps = sharpsRend - sharpsRbegin;
             }
 
-            // retrive the framerate
+            // retrieve the framerate
             double framerate = 1000;
             {
                 const auto framerateCandidate = command.options.find("framerate");
@@ -126,7 +126,7 @@ int main(int argc, char* argv[]) {
                 }
             }
 
-            // retrive the refractory period
+            // retrieve the refractory period
             uint64_t refractory = 1000;
             {
                 const auto refractoryCandidate = command.options.find("refractory");
