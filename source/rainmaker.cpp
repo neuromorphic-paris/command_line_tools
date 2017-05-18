@@ -186,7 +186,7 @@ int main(int argc, char* argv[]) {
                                 }
                             );
                             timeDeltas.reserve(timeDeltas.size() + timeDeltasBaseFrame.size());
-                            for (auto&& timeDelta : timeDeltasBaseFrame) {
+                            for (auto timeDelta : timeDeltasBaseFrame) {
                                 if (timeDelta < std::numeric_limits<uint64_t>::max()) {
                                     timeDeltas.push_back(timeDelta);
                                 }
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
             auto frames = std::vector<std::array<uint8_t, 304 * 240 * 4>>();
             if (frametime > 0) {
                 frames.push_back(baseFrame);
-                for (auto&& colorEvent : colorEvents) {
+                for (auto colorEvent : colorEvents) {
                     if (colorEvent.timestamp >= lastTimestamp) {
                         break;
                     } else {
