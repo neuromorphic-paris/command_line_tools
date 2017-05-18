@@ -530,7 +530,7 @@ void writeHtml(
         output << "            frames = [\n";
         auto height = 0.0;
         const auto frameHeight = 10.0 / (lastTimestamp - firstTimestamp) * frametime;
-        for (auto&& frame : frames) {
+        for (const auto& frame : frames) {
             output << "                {height: " << height << ", data: '";
             auto pngImage = std::vector<uint8_t>();
             lodepng::encode(pngImage, std::vector<uint8_t>(frame.begin(), frame.end()), 304, 240);
@@ -544,7 +544,7 @@ void writeHtml(
     {
         auto bytes = std::vector<uint8_t>();
         uint64_t previousTimestamp = 0;
-        for (auto&& colorEvent : colorEvents) {
+        for (auto colorEvent : colorEvents) {
             auto relativeTimestamp = colorEvent.timestamp - previousTimestamp;
             if (relativeTimestamp > 126) {
                 const auto numberOfOverflows = relativeTimestamp / 127;

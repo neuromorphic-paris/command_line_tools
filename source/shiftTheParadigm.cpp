@@ -443,7 +443,7 @@ int main(int argc, char* argv[]) {
                     std::sort(secondThresholdCrossings.begin(), secondThresholdCrossings.end(), [](const sepia::AtisEvent& first, const sepia::AtisEvent& second) {
                         return first.timestamp < second.timestamp;
                     });
-                    for (auto&& event : secondThresholdCrossings) {
+                    for (auto event : secondThresholdCrossings) {
                         eventStreamWriter(event);
                     }
                 }
