@@ -38,12 +38,15 @@ Rainmaker generates a standalone html file with a 3D representation of events fr
 ```
 ./rainmaker [options] /path/to/input.es /path/to/output.html
 ```
-Available options are:\n"
+Available options are:"
   - `-t [timestamp]`, `--timestamp [timestamp]` sets the initial timestamp for the point cloud (defaults to `0`)
   - `-d [duration]`, `--duration [duration]` sets the duration (in microseconds) for the point cloud (defaults to `1000000`)
+  - `-m [mode]`, `--mode [mode]` sets the mode (one of 'grey', 'change', 'color', defaults to 'grey')
+                                                     grey: generates points from exposure measurements, requires an ATIS event stream
+                                                     change: generates points from change detections, requires an ATIS event stream
+                                                     color: generates points from color events, requires a color event stream
   - `-r [ratio]`, `--ratio [ratio]` sets the discard ratio for logarithmic tone mapping (default to `0.05`)
   - `-f [frame time]`, `--frametime [frame time]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames
-  - `-c`, `--change` displays change detections instead of exposure measurements, the ratio and frame time options are ignored
   - `-h`, `--help` shows the help message
 
 ## EsToCsv
