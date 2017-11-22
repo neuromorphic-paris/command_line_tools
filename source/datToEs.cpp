@@ -88,34 +88,42 @@ int main(int argc, char* argv[]) {
             auto tdBytes = std::array<unsigned char, 8>();
             auto apsBytes = std::array<unsigned char, 8>();
             if (tdEnabled) {
+                auto hasHeader = false;
                 for (;;) {
                     if (tdFile.peek() != '%') {
                         break;
                     }
+                    hasHeader = true;
                     for (;!tdFile.eof() && tdFile.get() != '\n';) {}
                     if (tdFile.eof()) {
                         throw std::runtime_error("The td file is empty");
                     }
                 }
-                tdFile.get();
-                tdFile.get();
+                if (hasHeader) {
+                    apsFile.get();
+                    apsFile.get();
+                }
                 tdFile.read(const_cast<char*>(reinterpret_cast<const char*>(tdBytes.data())), tdBytes.size());
                 if (!apsEnabled && tdFile.eof()) {
                     throw std::runtime_error("The td file is empty");
                 }
             }
             if (apsEnabled) {
+                auto hasHeader = false;
                 for (;;) {
                     if (apsFile.peek() != '%') {
                         break;
                     }
+                    hasHeader = true;
                     for (;!apsFile.eof() && apsFile.get() != '\n';) {}
                     if (apsFile.eof()) {
                         throw std::runtime_error("The td file is empty");
                     }
                 }
-                apsFile.get();
-                apsFile.get();
+                if (hasHeader) {
+                    apsFile.get();
+                    apsFile.get();
+                }
                 apsFile.read(const_cast<char*>(reinterpret_cast<const char*>(apsBytes.data())), apsBytes.size());
                 if (!tdEnabled && apsFile.eof()) {
                     throw std::runtime_error("The aps file is empty");
