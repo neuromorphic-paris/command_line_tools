@@ -336,7 +336,7 @@ int main(int argc, char* argv[]) {
             if (mode != Mode::change) {
                 const auto frametimeCandidate = command.options.find("frametime");
                 if (frametimeCandidate == command.options.end() || frametimeCandidate->second == "auto") {
-                    frametime = (lastTimestamp - firstTimestamp) / (colorEvents.size() / (304 * 240));
+                    frametime = static_cast<uint64_t>((lastTimestamp - firstTimestamp) / (static_cast<double>(colorEvents.size()) / (304 * 240)));
                     if (frametime == 0) {
                         frametime = 1;
                     }
