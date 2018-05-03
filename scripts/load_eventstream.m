@@ -1,8 +1,15 @@
-function event_data = load_eventstream(filename)
-% td_data = load_eventstream(filename)
+function event_data = load_eventstream(filename, mirrorX, mirrorY)
+% td_data = load_eventstream(filename, mirrorX=false, mirrorY=false)
 %
 % loads ES files that have been recorded with version 1 of the ES format.
 % See https://github.com/neuromorphic-paris/event_stream/blob/7ffcca590faa002b48e57f8e75810ceb200888a4/README.md
+
+if ~exist('mirrorX','var')
+    mirrorX = false;
+end
+if ~exist('mirrorY','var')
+    mirrorY = false;
+end
 
 f=fopen(filename);
 
@@ -71,6 +78,13 @@ for i = 1:length(data)
         index = index + 1;
         skiploop = 2;
     end
+end
+
+if mirrorX
+    event_data.x = 303 - event_data.x;
+end
+if mirrorY
+    event_data.y = 239 - event_data.y;
 end
 
 fclose(f);
