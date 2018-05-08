@@ -25,8 +25,8 @@ end
 
 data = fread(f, 'uint8');
 
-arraySize = round(size(data)/3) + 1; %if all bytes were event bytes and no overflow or reset bytes
-events = NaN(1,arraySize(1));
+arraySize = round(length(data)/3) + 1; %if all bytes were event bytes and no overflow or reset bytes
+events = NaN(1, arraySize);
 index = 1;
 tsmask = bin2dec('00011111');
 xmask = bin2dec('00100000');
