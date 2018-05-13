@@ -1,0 +1,12 @@
+[submodule "third_party/pontella"]
+	path = third_party/pontella
+	url = https://github.com/neuromorphic-paris/pontella.git
+[submodule "third_party/sepia"]
+	path = third_party/sepia
+	url = https://github.com/neuromorphic-paris/sepia.git
+[submodule "third_party/tarsier"]
+	path = third_party/tarsier
+	url = https://github.com/neuromorphic-paris/tarsier.git
+[submodule "third_party/lodepng"]
+	path = third_party/lodepng
+	url = https://github.com/lvandeve/lodepng.git
