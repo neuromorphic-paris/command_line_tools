@@ -78,6 +78,15 @@ Available options:
   - `-f [duration]`, `--frametime [duration]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
   - `-h`, `--help` shows the help message
 
+### statistics
+
+statistics retrieves the event stream's properties and outputs them in JSON format:
+```
+./statistics [options] /path/to/input.es
+```
+Available options:
+  - `-h`, `--help` shows the help message
+
 ## Scripts
 
 ### run_for_each.py

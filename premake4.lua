@@ -18,11 +18,11 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
-    project 'rainmaker'
+    project 'dat_to_es'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/html.hpp', 'third_party/lodepng/lodepng.cpp', 'source/rainmaker.cpp'}
+        files {'source/dat_to_es.cpp'}
         buildoptions {'-std=c++11'}
         linkoptions {'-std=c++11'}
         configuration 'release'
@@ -52,11 +52,11 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
-    project 'dat_to_es'
+    project 'rainmaker'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/dat_to_es.cpp'}
+        files {'source/html.hpp', 'third_party/lodepng/lodepng.cpp', 'source/rainmaker.cpp'}
         buildoptions {'-std=c++11'}
         linkoptions {'-std=c++11'}
         configuration 'release'
