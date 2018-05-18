@@ -1,0 +1,748 @@
+R""""(<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="charset=utf-8" />
+        <title>{% title %}</title>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script>
+
+            /// parameters can be edited to tweak the app's appearance.
+            const parameters = {
+                x_max: {% x_max %},
+                y_max: {% y_max %},
+                z_max: {% z_max %},
+                speeds: [0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1, 3, 10],
+                default_speed_index: 6,
+                axis_radius: 0.003,
+                head_radius: 0.01,
+                head_distance: 0.02,
+                colors: {
+                    axis: '#334d5c',
+                    link: '#334d5c',
+                    active: '#008cff',
+                    background: '#ffffff',
+                    separator: '#e8e8e8',
+                    controls_background: '#fafafa',
+                    nolink: '#b4b4b4',
+                    content: '#555555',
+                },
+                font: {
+                    family: 'Helvetica, sans-serif',
+                    size: '16px',
+                },
+                playback_frametime: 20,
+            };
+            /// data is filled up at the end of this file, and contains events and frames.
+            const data = {};
+
+            /// state represents the app's state.
+            const state = {
+                playing: false,
+                dragging: false,
+                update_required: false,
+                t: {% begin_t %},
+                speed_index: parameters.default_speed_index,
+                {% if has_frames %}
+                    events: false,
+                {% end %}
+                mouse_x: null,
+                drag_begin_t: null,
+                bar_width: null,
+            };
+
+            /// style_to_string converts a style object to a CSS string.
+            const style_to_string = function(style) {
+                return Object.keys(style).map(function(key) {
+                    if (style[key].constructor === Array) {
+                        return style[key].map(function(value) {
+                            return key + ':' + value.toString();
+                        }).join(';');
+                    } else {
+                        return key + ':' + style[key].toString();
+                    }
+                }).join(';');
+            };
+
+           /// append generates HTML elements and appends them to an existing node.
+            const append = function(element, parameters, content) {
+                if (content == null && typeof parameters !== 'object') {
+                    content = parameters;
+                    parameters = null;
+                }
+                if (parameters != null) {
+                    Object.keys(parameters).forEach(function(key) {
+                        if (key === 'style' && typeof parameters.style === 'object') {
+                            element.setAttribute('style', style_to_string(parameters.style));
+                        } else {
+                            element.setAttribute(key, parameters[key]);
+                        }
+                    });
+                }
+                if (typeof content === 'function') {
+                    content(function(name, parameters, content) {
+                        const parts = name.split('::');
+                        let namespace = null;
+                        if (parts.length == 2) {
+                            switch (parts[0]) {
+                                case 'html':
+                                    name = parts[1];
+                                    namespace = 'http://www.w3.org/1999/xhtml';
+                                    break;
+                                case 'svg':
+                                    name = parts[1];
+                                    namespace = 'http://www.w3.org/2000/svg';
+                                    break;
+                                case 'xbl':
+                                    name = parts[1];
+                                    namespace = 'http://www.mozilla.org/xbl';
+                                    break;
+                                case 'xbl':
+                                    name = parts[1];
+                                    namespace = 'http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul';
+                                    break;
+                                default:
+                                    break;
+                            }
+                        }
+                        element.appendChild(append(
+                            namespace === null ? document.createElement(name) : document.createElementNS(namespace, name),
+                            parameters,
+                            content
+                        ));
+                        return element.lastChild;
+                    });
+                } else if (typeof content === 'string') {
+                    element.innerHTML = content;
+                }
+                return element;
+            };
+
+            /// stylessheet creates a new CSS stylesheet.
+            const stylesheet = function(selectors_and_styles) {
+                const sheet = document.head.appendChild(document.createElement('style')).sheet;
+                selectors_and_styles.forEach(function(selector_and_style) {
+                    sheet.insertRule(selector_and_style[0] + ' {' + style_to_string(selector_and_style[1]) + '}', sheet.cssRules.length);
+                });
+            };
+
+            window.onload = function() {
+
+                // generate HTML content
+                append(document.getElementById('app'), {style: {
+                    width: '100%',
+                    height: '100%',
+                    'background-color': parameters.colors.background,
+                    overflow: 'hidden',
+                }}, function(create) {
+
+                    // create the X3DOM scene
+                    let viewpoint;
+                    let clipplane;
+                    let t_cursor;
+                    let t_bar;
+                    let t_bar_filler;
+                    let t_text;
+                    {% if has_frames %}
+                        const frames_shapes = [];
+                        let events_shapes;
+                    {% end %}
+                    const x3d = create('x3d', {style: {
+                        width: '100%',
+                        height: 'calc(100% - 80px)',
+                        border: 'none',
+                        display: 'block',
+                    }}, function(create) {
+                        create('scene', function(create) {
+
+                            // create the viewpoint
+                            viewpoint = create('orthoviewpoint');
+
+                            // create the axes
+                            const axis = function(create, rotation, translation, height) {
+                                create('transform', {rotation: rotation, translation: translation}, function(create) {
+                                    const color = parameters.colors.axis.substr(1).match(/../g).map(function(component) {
+                                        return parseInt(component, 16) / 255;
+                                    }).join(',');
+                                    create('shape', function(create) {
+                                        create('appearance', function(create) {
+                                            create('material', {diffusecolor: color});
+                                        });
+                                        create('cylinder', {height: height, radius: parameters.axis_radius});
+                                    });
+                                    create('transform', {
+                                        translation: [0, height / 2 + parameters.head_radius, 0].join(','),
+                                    }, function(create) {
+                                        create('shape', function(create) {
+                                            create('appearance', function(create) {
+                                                create('material', {diffusecolor: color});
+                                            });
+                                            create('cone', {
+                                                height: parameters.head_radius * 2,
+                                                bottomradius: parameters.head_radius,
+                                            });
+                                        });
+                                    });
+                                });
+                            };
+                            axis(
+                                create,
+                                [0, 0, -1, Math.PI / 2].join(','),
+                                [
+                                    (parameters.head_distance - parameters.axis_radius) / 2,
+                                    -parameters.y_max / 2 - parameters.axis_radius,
+                                    -parameters.z_max / 2 - parameters.axis_radius,
+                                ].join(','),
+                                parameters.x_max + parameters.axis_radius + parameters.head_distance
+                            );
+                            axis(
+                                create,
+                                [0, 0, 1, 0].join(','),
+                                [
+                                    -parameters.x_max / 2 - parameters.axis_radius,
+                                    (parameters.head_distance - parameters.axis_radius) / 2,
+                                    -parameters.z_max / 2 - parameters.axis_radius,
+                                ].join(','),
+                                parameters.y_max + parameters.axis_radius + parameters.head_distance
+                            );
+                            axis(
+                                create,
+                                [1, 0, 0, Math.PI / 2].join(','),
+                                [
+                                    -parameters.x_max / 2 - parameters.axis_radius,
+                                    -parameters.y_max / 2 - parameters.axis_radius,
+                                    (parameters.head_distance - parameters.axis_radius) / 2,
+                                ].join(','),
+                                parameters.z_max + parameters.axis_radius + parameters.head_distance
+                            );
+                            create('transform', {translation: [
+                                -parameters.x_max / 2 - parameters.axis_radius,
+                                -parameters.y_max / 2 - parameters.axis_radius,
+                                -parameters.z_max / 2 - parameters.axis_radius,
+                            ].join(',')}, function(create) {
+                                create('shape', function(create) {
+                                    create('appearance', function(create) {
+                                        create('material', {diffusecolor: parameters.axis_color});
+                                    });
+                                    create('sphere', {radius: parameters.axis_radius});
+                                });
+                            });
+
+                            // render the data
+                            create('group', function(create) {
+
+                                // render the moving clipplane
+                                clipplane = create('clipplane', {
+                                    plane: '0, 0, -1, ' + ((-0.5 + 0.5 / ({% end_t %} - {% begin_t %})) * parameters.z_max).toString(),
+                                });
+
+                                // render the base frame
+                                create('shape', function(create) {
+                                    create('appearance', function(create) {
+                                        create('imagetexture', {url: 'data:image/png;base64,' + data.base_frame}, function(create) {
+                                            create('textureproperties', {magnificationfilter: 'NEAREST_PIXEL'});
+                                        });
+                                    });
+                                    create('plane', {
+                                        size: [parameters.x_max, parameters.y_max].join(','),
+                                        center: [0, 0, (-0.5 / ({% end_t %} - {% begin_t %}) - 0.5) * parameters.z_max].join(','),
+                                    });
+                                });
+
+                                {% if has_frames %}
+
+                                    // render the frames
+                                    data.frames.forEach(function(frame, index) {
+                                        frames_shapes.push(create('shape', function(create) {
+                                            create('appearance', function(create) {
+                                                create('imagetexture', {url: 'data:image/png;base64,' + frame}, function(create) {
+                                                    create('textureproperties', {magnificationfilter: 'NEAREST_PIXEL'});
+                                                });
+                                            });
+                                            create('plane', {
+                                                size: [parameters.x_max, parameters.y_max].join(','),
+                                                center: [0, 0, (index * {% frametime %} / ({% end_t %} - {% begin_t %}) - 0.5) * parameters.z_max].join(','),
+                                            });
+                                        }));
+                                    });
+                                {% end %}
+
+                                // render the events
+                                {% if has_frames %}events_shape = {% end %}create('shape', {% if has_frames %}{render: false}, {% end %}function(create) {
+                                    create('pointset', function(create) {
+                                        let color_definition = '';
+                                        let coordinate_definition = '';
+                                        let event_stream_state = 0;
+                                        const color_event = [0, 0, 0, 0, 0, 0]; // [t, x, y, r, g, b]
+                                        for (let index = 0; index < data.events.length; ++index) {
+                                            const byte = data.events.charCodeAt(index);
+                                            switch (event_stream_state) {
+                                                case 0:
+                                                    if (byte === 255) {
+                                                        color_event[0] += 254;
+                                                    } else if (byte != 254) {
+                                                        color_event[0] += byte;
+                                                        event_stream_state = 1;
+                                                    }
+                                                    break;
+                                                case 1:
+                                                    color_event[1] = byte;
+                                                    event_stream_state = 2;
+                                                    break;
+                                                case 2:
+                                                    color_event[1] |= (byte << 8);
+                                                    event_stream_state = 3;
+                                                    break;
+                                                case 3:
+                                                    color_event[2] = byte;
+                                                    event_stream_state = 4;
+                                                    break;
+                                                case 4:
+                                                    color_event[2] |= (byte << 8);
+                                                    event_stream_state = 5;
+                                                    break;
+                                                case 5:
+                                                    color_event[3] = byte;
+                                                    event_stream_state = 6;
+                                                    break;
+                                                case 6:
+                                                    color_event[4] = byte;
+                                                    event_stream_state = 7;
+                                                    break;
+                                                case 7:
+                                                    color_event[5] = byte;
+                                                    event_stream_state = 0;
+                                                    color_definition += [
+                                                        color_event[3] / 255,
+                                                        color_event[4] / 255,
+                                                        color_event[5] / 255,
+                                                    ].join(' ') + ' ';
+                                                    coordinate_definition += [
+                                                        ((color_event[1] + 0.5) / ({% width %}) - 0.5) * parameters.x_max,
+                                                        ((color_event[2] + 0.5) / ({% height %}) - 0.5) * parameters.y_max,
+                                                        ((color_event[0] - {% begin_t %}) / ({% end_t %} - {% begin_t %}) - 0.5) * parameters.z_max,
+                                                    ].join(' ') + ' ';
+                                                    break;
+                                                default:
+                                                    throw new Error('unexpected event stream state');
+                                            }
+                                        }
+                                        create('color', {color: color_definition});
+                                        create('coordinate', {point: coordinate_definition});
+                                    });
+                                });
+                            });
+                        });
+                    });
+
+                    // create the controls
+                    create('div', {style: {
+                        height: '80px',
+                        'border-top': '1px solid ' + parameters.colors.separator,
+                        'background-color': parameters.colors.controls_background,
+                        'vertical-align': 'middle',
+                        '-webkit-user-select': 'none',
+                        'user-select': 'none',
+                    }}, function(create) {
+                        create('div', {style: {
+                            display: 'inline-block',
+                            'vertical-align': 'bottom',
+                            width: '160px',
+                            height: '100%',
+                        }}, function(create) {
+                            create('div', {style: {
+                                width: '100%',
+                                height: '40px',
+                                'text-align': 'center',
+                                'line-height': '40px',
+                            }}, function(create) {
+                                let play;
+                                let pause;
+                                create('svg::svg', {
+                                    class: 'button',
+                                    viewBox: '0 0 100 100',
+                                    style: {
+                                        display: 'inline-block',
+                                        width: '30px',
+                                        height: '30px',
+                                        'vertical-align': 'middle',
+                                        transition: 'fill 0.3s',
+                                    },
+                                }, function(create) {
+                                    play = create('svg::polygon', {points: '0 0 100 50 0 100'});
+                                    pause = create('svg::g', {display: 'none'}, function(create) {
+                                        create('svg::polygon', {points: '0 0 36 0 36 100 0 100'});
+                                        create('svg::polygon', {points: '64 0 100 0 100 100 64 100'});
+                                    });
+                                }).addEventListener('click', function() {
+                                    if (state.playing) {
+                                        state.playing = false;
+                                        play.removeAttribute('display');
+                                        pause.setAttribute('display', 'none');
+                                    } else {
+                                        state.playing = true;
+                                        play.setAttribute('display', 'none');
+                                        pause.removeAttribute('display');
+                                    }
+                                });
+                            });
+                            create('div', {style: {
+                                width: '100%',
+                                height: '40px',
+                                'text-align': 'center',
+                                'vertical-align': 'middle',
+                                'line-height': '40px',
+                            }}, function(create) {
+                                const left = create('svg::svg', {
+                                    class: 'button',
+                                    viewBox: '0 0 100 100',
+                                    style: {
+                                        display: 'inline-block',
+                                        width: '16px',
+                                        height: '16px',
+                                        'vertical-align': 'middle',
+                                        transition: 'fill 0.3s',
+                                        'margin-left': '24px',
+                                    },
+                                }, function(create) {
+                                    create('svg::polygon', {points: '100 0 0 50 100 100'});
+                                });
+                                const value = create('div', {style: {
+                                    display: 'inline-block',
+                                    height: '40px',
+                                    width: '80px',
+                                    'vertical-align': 'middle',
+                                    'font-family': parameters.font.family,
+                                    'font-size': parameters.font.size,
+                                    color: parameters.colors.content,
+                                }}, 'x ' + parameters.speeds[state.speed_index].toString());
+                                const right = create('svg::svg', {
+                                    class: 'button',
+                                    viewBox: '0 0 100 100',
+                                    style: {
+                                        display: 'inline-block',
+                                        width: '16px',
+                                        height: '16px',
+                                        'vertical-align': 'middle',
+                                        transition: 'fill 0.3s',
+                                        'margin-right': '24px',
+                                    },
+                                }, function(create) {
+                                    create('svg::polygon', {points: '0 0 100 50 0 100'});
+                                });
+                                const update_classes = function() {
+                                    if (state.speed_index === 0) {
+                                        left.classList.add('disabled');
+                                    } else {
+                                        left.classList.remove('disabled');
+                                    }
+                                    if (state.speed_index === parameters.speeds.length - 1) {
+                                        right.classList.add('disabled');
+                                    } else {
+                                        right.classList.remove('disabled');
+                                    }
+                                };
+                                left.addEventListener('click', function() {
+                                    if (state.speed_index > 0) {
+                                        --state.speed_index;
+                                        value.innerHTML = 'x ' + parameters.speeds[state.speed_index].toString();
+                                        update_classes();
+                                    }
+                                });
+                                right.addEventListener('click', function() {
+                                    if (state.speed_index < parameters.speeds.length - 1) {
+                                        ++state.speed_index;
+                                        value.innerHTML = 'x ' + parameters.speeds[state.speed_index].toString();
+                                        update_classes();
+                                    }
+                                });
+                            });
+                        });
+                        t_controls = create('div', {style: {
+                            display: 'inline-block',
+                            'vertical-align': 'bottom',
+                            width: 'calc(100% - {% if has_frames %}280{% else %}160{% end %}px)',
+                            height: '100%',
+                            'padding-left': '18px',
+                            'padding-right': '18px',
+                            'border-left': '1px solid ' + parameters.colors.separator,
+                        }}, function(create) {
+                            create('div', {style: {
+                                width: '100%',
+                                height: '40px',
+                                position: 'relative',
+                            }}, function(create) {
+                                t_bar = create('div', {id: 't-bar', style: {
+                                    position: 'absolute',
+                                    top: '12px',
+                                    width: '100%',
+                                    height: '16px',
+                                }}, function(create) {
+                                    create('div', {style: {
+                                        'margin-top': '6px',
+                                        width: '100%',
+                                        height: '4px',
+                                        'background-color': parameters.colors.separator,
+                                    }}, function(create) {
+                                        t_bar_filler = create('div', {style: {
+                                            width: 0,
+                                            height: '4px',
+                                            'background-color': parameters.colors.link,
+                                        }});
+                                    });
+                                });
+                                t_cursor = create('div', {id: 't-cursor', style: {
+                                    position: 'absolute',
+                                    transform: 'translateX(-8px)',
+                                    top: '12px',
+                                    width: '16px',
+                                    height: '16px',
+                                    'border-radius': '8px',
+                                    transition: 'background-color 0.3s',
+                                }});
+                            });
+                            t_text = create('div', {style: {
+                                width: '100%',
+                                height: '40px',
+                                'text-align': 'center',
+                                'line-height': '40px',
+                                'font-family': parameters.font.family,
+                                'font-size': parameters.font.size,
+                                color: parameters.colors.content,
+                            }}, ({% begin_t %}).toString());
+                        });
+                        {% if has_frames %}
+                            create('div', {style: {
+                                display: 'inline-block',
+                                'vertical-align': 'bottom',
+                                width: '120px',
+                                height: '100%',
+                                'border-left': '1px solid ' + parameters.colors.separator,
+                            }}, function(create) {
+                                const frames_switch = create('div', {class: 'switch active', style: {
+                                    width: '100%',
+                                    height: '40px',
+                                    'text-align': 'center',
+                                    'vertical-align': 'middle',
+                                    'line-height': '40px',
+                                    'font-family': parameters.font.family,
+                                    'font-size': parameters.font.size,
+                                }}, 'frames');
+                                const events_switch = create('div', {class: 'switch', style: {
+                                    width: '100%',
+                                    height: '40px',
+                                    'text-align': 'center',
+                                    'vertical-align': 'middle',
+                                    'line-height': '40px',
+                                    'font-family': parameters.font.family,
+                                    'font-size': parameters.font.size,
+                                    'border-top': '1px solid ' + parameters.colors.separator,
+                                }}, 'events');
+                                frames_switch.addEventListener('click', function() {
+                                    if (state.events) {
+                                        frames_shapes.forEach(function(shape) {
+                                            shape.setAttribute('render', 'true');
+                                        });
+                                        events_shape.setAttribute('render', 'false');
+                                        state.events = false;
+                                        frames_switch.classList.add('active');
+                                        events_switch.classList.remove('active');
+                                    }
+                                });
+                                events_switch.addEventListener('click', function() {
+                                    if (!state.events) {
+                                        frames_shapes.forEach(function(shape) {
+                                            shape.setAttribute('render', 'false');
+                                        });
+                                        events_shape.setAttribute('render', 'true');
+                                        state.events = true;
+                                        frames_switch.classList.remove('active');
+                                        events_switch.classList.add('active');
+                                    }
+                                });
+                            });
+                        {% end %}
+                    });
+
+                    /// manage playback
+                    window.setInterval(function() {
+                        if (state.playing && !state.dragging) {
+                            state.t += parameters.speeds[state.speed_index] * parameters.playback_frametime * 1000;
+                            if (state.t >= {% end_t %}) {
+                                state.t = {% begin_t %};
+                            }
+                        }
+                        if (state.playing || state.update_required) {
+                            t_text.innerHTML = state.t.toString();
+                            const ratio = ((state.t - {% begin_t %}) / ({% end_t %} - {% begin_t %} - 1) * 100).toString() + '%';
+                            t_bar_filler.style.width = ratio;
+                            t_cursor.style.left = ratio;
+                            clipplane.setAttribute(
+                                'plane',
+                                '0, 0, -1, ' + (((state.t - {% begin_t %} + 0.5) / ({% end_t %} - {% begin_t %}) - 0.5) * parameters.z_max).toString()
+                            );
+                            state.update_required = false;
+                        }
+                    }, parameters.playback_frametime);
+                    t_bar.addEventListener('click', function(event) {
+                        state.t = Math.round(event.offsetX / t_bar.offsetWidth * ({% end_t %} - {% begin_t %} - 1)) + {% begin_t %};
+                        state.update_required = true;
+                    });
+                    document.onselectstart = function() {
+                        return false;
+                    }
+                    t_cursor.addEventListener('mousedown', function(event) {
+                        state.dragging = true;
+                        state.mouse_x = event.screenX;
+                        state.drag_begin_t = state.t;
+                        state.bar_width = t_bar.offsetWidth;
+                        t_controls.style.cursor = 'col-resize';
+                        t_bar.style.cursor = 'col-resize';
+                    });
+                    window.addEventListener('mousemove', function(event) {
+                        if (state.dragging) {
+                            state.t = (
+                                state.drag_begin_t
+                                + Math.round((event.screenX - state.mouse_x) / state.bar_width * ({% end_t %} - {% begin_t %} - 1))
+                            );
+                            if (state.t < {% begin_t %}) {
+                                state.t = {% begin_t %};
+                            } else if (state.t >= {% end_t %}) {
+                                state.t = {% end_t %} - 1;
+                            }
+                            state.update_required = true;
+                        }
+                    });
+                    window.addEventListener('mouseup', function() {
+                        state.dragging = false;
+                        t_controls.style.cursor = '';
+                        t_bar.style.cursor = '';
+                    });
+                    window.addEventListener('mouseleave', function() {
+                        state.dragging = false;
+                        t_controls.style.cursor = '';
+                        t_bar.style.cursor = '';
+                    });
+
+                    // add CSS rules
+                    const style = stylesheet([
+                        ['html', {
+                            'box-sizing': 'border-box',
+                            width: '100%',
+                            height: '100%',
+                        }],
+                        ['*, *:before, *:after', {
+                            'box-sizing': 'inherit',
+                        }],
+                        ['body', {
+                            margin: 0,
+                            width: '100%',
+                            height: '100%',
+                        }],
+                        ['x3d:hover', {
+                            '-webkit-user-select': 'none',
+                            '-webkit-touch-callout': 'none',
+                        }],
+                        ['.x3dom-canvas', {
+                            border: 'none',
+                            cursor: ['-webkit-grab', 'grab'],
+                            width: '100%',
+                            height: '100%',
+                        }],
+                        ['.x3dom-canvas:hover', {
+                            '-webkit-user-select': 'none',
+                            '-webkit-touch-callout': 'none',
+                        }],
+                        ['.x3dom-canvas:focus', {
+                            outline: 'none',
+                        }],
+                        ['.x3dom-canvas-mousedown', {
+                            cursor: ['-webkit-grabbing', 'grabbing'],
+                        }],
+                        ['#top-view g', {
+                            transition: 'fill 0.3s',
+                        }],
+                        ['svg.button:not(.disabled)', {
+                            fill: parameters.colors.link,
+                            cursor: 'pointer',
+                        }],
+                        ['svg.button.disabled', {
+                            fill: parameters.colors.nolink,
+                        }],
+                        ['svg.button:not(.disabled):hover, svg.button:not(.disabled):active', {
+                            fill: parameters.colors.active,
+                        }],
+                        ['#t-bar', {
+                            cursor: 'pointer',
+                        }],
+                        ['#t-cursor', {
+                            'background-color': parameters.colors.link,
+                            cursor: 'pointer',
+                        }],
+                        ['#t-cursor:hover, #t-cursor:active', {
+                            'background-color': parameters.colors.active,
+                        }],
+                        ['#t-cursor:active', {
+                            cursor: 'col-resize',
+                        }],
+                        {% if has_frames %}
+                            ['.switch.active', {
+                                color: parameters.colors.nolink,
+                                'box-shadow': 'inset 0 0 3px #888888',
+                            }],
+                            ['.switch:not(.active)', {
+                                color: parameters.colors.link,
+                                cursor: 'pointer',
+                                transition: 'color 0.3s',
+                            }],
+                            ['.switch:not(.active):hover, .switch:not(.active):active', {
+                                color: parameters.colors.active,
+                            }],
+                        {% end %}
+                    ]);
+
+                    // set the viewpoint's default properties
+                    viewpoint.setAttribute('position', [0, 0, (
+                        Math.max(parameters.x_max, parameters.y_max, parameters.z_max) / 2
+                        + parameters.head_distance + parameters.head_radius * 2
+                    ) * Math.sqrt(3)].join(','));
+                    const x_field = parameters.x_max / 2 + (parameters.head_distance + parameters.head_radius * 2) * 2;
+                    const y_field = parameters.y_max / 2 + (parameters.head_distance + parameters.head_radius * 2) * 2;
+                    const field = x_field * x3d.clientHeight > y_field * x3d.clientWidth ? x_field : y_field;
+                    viewpoint.setAttribute('fieldofview', [-field, -field, field, field].join(','));
+
+                    // create the camera top view button
+                    create('svg::svg', {
+                        class: 'button',
+                        viewBox: '0 0 100 100',
+                        style: style_to_string({
+                            width: '50px',
+                            height: '50px',
+                            position: 'absolute',
+                            top: '10px',
+                            left: '10px',
+                            'z-index': 1,
+                            stroke: 'none',
+                            transition: 'fill 0.3s',
+                        }),
+                    }, function(create) {
+                        create('svg::path', {d: 'M83,19.0071068 L83,68 L83.0035534,68.0035534 L68.0035534,83.0035534 L67.2964466,82.2964466 L81.5928932,68 L34,68 L34.0035534,68.0035534 L19.0035534,83.0035534 L18.2964466,82.2964466 L33,67.5928932 L33,33 L20.0071068,33 L19.0035534,34.0035534 L18.2964466,33.2964466 L18.5928932,33 L18,33 L33,18 L83,18 L83,19 L83.0035534,19.0035534 L83,19.0071068 Z M82,20.0071068 L68.0035534,34.0035534 L67.2964466,33.2964466 L67.5928932,33 L34,33 L34,67 L82,67 L82,20.0071068 Z', 'fill-rule': 'nonzero'});
+                        create('svg::path', {d: 'M18,33 L68,33 L68,83 L18,83 L18,33 Z M19,34 L19,82 L67,82 L67,34 L19,34 Z', 'fill-rule': 'evenodd'});
+                    }).addEventListener('click', function() {
+                        x3d.runtime.resetView();
+                    });
+                });
+            };
+
+            // fill up data
+            data.base_frame = '{% base_frame %}';
+            {% if has_frames %}
+                data.frames = [{% frames %}];
+            {% end %}
+            data.events = window.atob('{% events %}');
+            {% x3dom %}
+        </script>
+    </body>
+</html>
+)""""
