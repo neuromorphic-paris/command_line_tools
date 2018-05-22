@@ -78,6 +78,9 @@ for i = 1:length(data)
             event_data.p(index) = p;
 
             index = index + 1;
+        else
+            t = t + bitand(data(i), tsmask) + overflow * 31;
+            overflow = 0;
         end
         skiploop = 2;
     end
