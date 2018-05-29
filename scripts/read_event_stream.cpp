@@ -6,14 +6,12 @@
 template <sepia::type event_stream_type>
 std::size_t count(std::unique_ptr<std::istream> stream) {
     std::size_t events = 0;
-    sepia::join_observable<event_stream_type>(
-        std::move(stream),
-        [&](sepia::event<event_stream_type>) { ++events; });
+    sepia::join_observable<event_stream_type>(std::move(stream), [&](sepia::event<event_stream_type>) { ++events; });
     return events;
 }
 
 class MexFunction : public matlab::mex::Function {
-public:
+    public:
     void operator()(matlab::mex::ArgumentList outputs, matlab::mex::ArgumentList inputs) {
         auto engine = getEngine();
         matlab::data::ArrayFactory factory;
@@ -47,8 +45,7 @@ public:
                 auto bytes = factory.createArray<matlab::data::MATLABString>({events, 1});
                 std::size_t index = 0;
                 sepia::join_observable<sepia::type::generic>(
-                    sepia::filename_to_ifstream(filename),
-                    [&](sepia::generic_event generic_event) {
+                    sepia::filename_to_ifstream(filename), [&](sepia::generic_event generic_event) {
                         t[index] = generic_event.t;
                         bytes[index] = std::string(generic_event.bytes.begin(), generic_event.bytes.end());
                         ++index;
@@ -74,8 +71,7 @@ public:
                 auto is_increase = factory.createArray<bool>({events, 1});
                 std::size_t index = 0;
                 sepia::join_observable<sepia::type::dvs>(
-                    sepia::filename_to_ifstream(filename),
-                    [&](sepia::dvs_event dvs_event) {
+                    sepia::filename_to_ifstream(filename), [&](sepia::dvs_event dvs_event) {
                         t[index] = dvs_event.t;
                         x[index] = dvs_event.x;
                         y[index] = dvs_event.y;
@@ -106,8 +102,7 @@ public:
                 auto polarity = factory.createArray<bool>({events, 1});
                 std::size_t index = 0;
                 sepia::join_observable<sepia::type::atis>(
-                    sepia::filename_to_ifstream(filename),
-                    [&](sepia::atis_event atis_event) {
+                    sepia::filename_to_ifstream(filename), [&](sepia::atis_event atis_event) {
                         t[index] = atis_event.t;
                         x[index] = atis_event.x;
                         y[index] = atis_event.y;
@@ -115,7 +110,8 @@ public:
                         polarity[index] = atis_event.polarity;
                         ++index;
                     });
-                auto matlab_events = factory.createStructArray({1}, {"t", "x", "y", "is_threshold_crossing", "polarity"});
+                auto matlab_events =
+                    factory.createStructArray({1}, {"t", "x", "y", "is_threshold_crossing", "polarity"});
                 matlab_events[0]["t"] = std::move(t);
                 matlab_events[0]["x"] = std::move(x);
                 matlab_events[0]["y"] = std::move(y);
@@ -141,8 +137,7 @@ public:
                 auto b = factory.createArray<uint8_t>({events, 1});
                 std::size_t index = 0;
                 sepia::join_observable<sepia::type::color>(
-                    sepia::filename_to_ifstream(filename),
-                    [&](sepia::color_event color_event) {
+                    sepia::filename_to_ifstream(filename), [&](sepia::color_event color_event) {
                         t[index] = color_event.t;
                         x[index] = color_event.x;
                         y[index] = color_event.y;
