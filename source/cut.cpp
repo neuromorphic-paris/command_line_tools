@@ -38,7 +38,7 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("The Event Stream input and output must be different files");
             }
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
-            switch (header.type) {
+            switch (header.event_stream_type) {
                 case sepia::type::generic: {
                     cut<sepia::type::generic>(header, command);
                     break;
