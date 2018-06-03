@@ -10,7 +10,7 @@ struct exposure_measurement {
     uint64_t t;
     uint16_t x;
     uint16_t y;
-    uint64_t t_delta;
+    uint64_t delta_t;
 } __attribute__((packed));
 
 int main(int argc, char* argv[]) {
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
             std::vector<sepia::color_event> color_events;
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
             std::vector<uint8_t> base_frame(header.width * header.height * 4, 0);
-            switch (header.type) {
+            switch (header.event_stream_type) {
                 case sepia::type::generic: {
                     throw std::runtime_error("generic events are not compatible with this application");
                     break;
@@ -108,17 +108,17 @@ int main(int argc, char* argv[]) {
                         }
                     }
                     std::vector<exposure_measurement> exposure_measurements;
-                    std::vector<uint64_t> t_delta_base_frame(header.width * header.height, 0);
+                    std::vector<uint64_t> delta_t_base_frame(header.width * header.height, 0);
                     sepia::join_observable<sepia::type::atis>(
                         sepia::filename_to_ifstream(command.arguments[0]),
-                        sepia::make_split(
+                        sepia::make_split<sepia::type::atis>(
                             [](sepia::dvs_event) {},
                             tarsier::make_stitch<sepia::threshold_crossing, exposure_measurement>(
                                 header.width,
                                 header.height,
                                 [](sepia::threshold_crossing threshold_crossing,
-                                   uint64_t t_delta) -> exposure_measurement {
-                                    return {threshold_crossing.t, threshold_crossing.x, threshold_crossing.y, t_delta};
+                                   uint64_t delta_t) -> exposure_measurement {
+                                    return {threshold_crossing.t, threshold_crossing.x, threshold_crossing.y, delta_t};
                                 },
                                 [&](exposure_measurement exposure_measurement) {
                                     if (exposure_measurement.t >= end_t) {
@@ -126,10 +126,10 @@ int main(int argc, char* argv[]) {
                                     } else if (exposure_measurement.t >= begin_t) {
                                         exposure_measurements.push_back(exposure_measurement);
                                     } else {
-                                        t_delta_base_frame
+                                        delta_t_base_frame
                                             [exposure_measurement.x
                                              + header.width * (header.height - 1 - exposure_measurement.y)] =
-                                                exposure_measurement.t_delta;
+                                                exposure_measurement.delta_t;
                                     }
                                 })));
                     if (exposure_measurements.empty()) {
@@ -138,43 +138,43 @@ int main(int argc, char* argv[]) {
                     auto slope = 0.0;
                     auto intercept = 128.0;
                     {
-                        std::vector<uint64_t> t_deltas;
-                        t_deltas.resize(exposure_measurements.size());
+                        std::vector<uint64_t> delta_ts;
+                        delta_ts.resize(exposure_measurements.size());
                         std::transform(
                             exposure_measurements.begin(),
                             exposure_measurements.end(),
-                            t_deltas.begin(),
-                            [](exposure_measurement exposure_measurement) { return exposure_measurement.t_delta; });
+                            delta_ts.begin(),
+                            [](exposure_measurement exposure_measurement) { return exposure_measurement.delta_t; });
 
                         // @DEBUG {
                         {
-                            std::ofstream debug("/Users/Alex/idv/libraries/utilities/build/debug/t_deltas.log");
-                            for (auto t_delta : t_deltas) {
-                                debug << t_delta << "\n";
+                            std::ofstream debug("/Users/Alex/idv/libraries/utilities/build/debug/delta_ts.log");
+                            for (auto delta_t : delta_ts) {
+                                debug << delta_t << "\n";
                             }
                         }
                         // }
 
-                        t_deltas.reserve(t_deltas.size() + t_delta_base_frame.size());
-                        for (auto t_delta : t_delta_base_frame) {
-                            if (t_delta > 0 && t_delta < std::numeric_limits<uint64_t>::max()) {
-                                t_deltas.push_back(t_delta);
+                        delta_ts.reserve(delta_ts.size() + delta_t_base_frame.size());
+                        for (auto delta_t : delta_t_base_frame) {
+                            if (delta_t > 0 && delta_t < std::numeric_limits<uint64_t>::max()) {
+                                delta_ts.push_back(delta_t);
                             }
                         }
-                        auto discarded_t_deltas =
-                            std::vector<uint64_t>(static_cast<std::size_t>(t_deltas.size() * ratio));
+                        auto discarded_delta_ts =
+                            std::vector<uint64_t>(static_cast<std::size_t>(delta_ts.size() * ratio));
                         std::partial_sort_copy(
-                            t_deltas.begin(), t_deltas.end(), discarded_t_deltas.begin(), discarded_t_deltas.end());
-                        auto white_discard = discarded_t_deltas.back();
-                        const auto white_discard_fallback = discarded_t_deltas.front();
+                            delta_ts.begin(), delta_ts.end(), discarded_delta_ts.begin(), discarded_delta_ts.end());
+                        auto white_discard = discarded_delta_ts.back();
+                        const auto white_discard_fallback = discarded_delta_ts.front();
                         std::partial_sort_copy(
-                            t_deltas.begin(),
-                            t_deltas.end(),
-                            discarded_t_deltas.begin(),
-                            discarded_t_deltas.end(),
+                            delta_ts.begin(),
+                            delta_ts.end(),
+                            discarded_delta_ts.begin(),
+                            discarded_delta_ts.end(),
                             std::greater<uint64_t>());
-                        auto black_discard = discarded_t_deltas.back();
-                        const auto black_discard_fallback = discarded_t_deltas.front();
+                        auto black_discard = discarded_delta_ts.back();
+                        const auto black_discard_fallback = discarded_delta_ts.front();
                         if (black_discard <= white_discard) {
                             white_discard = white_discard_fallback;
                             black_discard = black_discard_fallback;
@@ -186,16 +186,16 @@ int main(int argc, char* argv[]) {
                             intercept = 255.0 * std::log(static_cast<double>(black_discard)) / delta;
                         }
                     }
-                    auto t_delta_to_exposure = [&](uint64_t t_delta) -> uint8_t {
-                        const auto exposure_candidate = slope * std::log(t_delta) + intercept;
+                    auto delta_t_to_exposure = [&](uint64_t delta_t) -> uint8_t {
+                        const auto exposure_candidate = slope * std::log(delta_t) + intercept;
                         return static_cast<uint8_t>(
                             exposure_candidate > 255 ? 255 : (exposure_candidate < 0 ? 0 : exposure_candidate));
                     };
-                    for (auto t_delta_iterator = t_delta_base_frame.begin();
-                         t_delta_iterator != t_delta_base_frame.end();
-                         ++t_delta_iterator) {
-                        const auto exposure = t_delta_to_exposure(*t_delta_iterator);
-                        const std::size_t index = std::distance(t_delta_base_frame.begin(), t_delta_iterator) * 4;
+                    for (auto delta_t_iterator = delta_t_base_frame.begin();
+                         delta_t_iterator != delta_t_base_frame.end();
+                         ++delta_t_iterator) {
+                        const auto exposure = delta_t_to_exposure(*delta_t_iterator);
+                        const std::size_t index = std::distance(delta_t_base_frame.begin(), delta_t_iterator) * 4;
                         base_frame[index] = exposure;
                         base_frame[index + 1] = exposure;
                         base_frame[index + 2] = exposure;
@@ -207,7 +207,7 @@ int main(int argc, char* argv[]) {
                         exposure_measurements.end(),
                         color_events.begin(),
                         [&](exposure_measurement exposure_measurement) -> sepia::color_event {
-                            const auto exposure = t_delta_to_exposure(exposure_measurement.t_delta);
+                            const auto exposure = delta_t_to_exposure(exposure_measurement.delta_t);
                             return {exposure_measurement.t,
                                     exposure_measurement.x,
                                     exposure_measurement.y,
@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
 
             // retrieve the frametime
             uint64_t frametime = 0;
-            if (header.type != sepia::type::dvs) {
+            if (header.event_stream_type != sepia::type::dvs) {
                 const auto name_and_argument = command.options.find("frametime");
                 if (name_and_argument == command.options.end() || name_and_argument->second == "auto") {
                     frametime = (end_t - begin_t) / (color_events.size() / (header.height * header.width));

@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
             auto input = sepia::filename_to_ifstream(command.arguments[0]);
             auto output = sepia::filename_to_ofstream(command.arguments[1]);
-            switch (header.type) {
+            switch (header.event_stream_type) {
                 case sepia::type::generic:
                     *output << "t,bytes\n";
                     sepia::join_observable<sepia::type::generic>(
