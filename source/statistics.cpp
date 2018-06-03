@@ -46,13 +46,13 @@ int main(int argc, char* argv[]) {
                  std::string("\"") + std::to_string(static_cast<uint32_t>(std::get<0>(header.version))) + "."
                      + std::to_string(static_cast<uint32_t>(std::get<1>(header.version))) + "."
                      + std::to_string(static_cast<uint32_t>(std::get<2>(header.version))) + "\""},
-                 {"type", std::string("\"") + type_to_string(header.type) + "\""},
+                 {"type", std::string("\"") + type_to_string(header.event_stream_type) + "\""},
             };
-            if (header.type != sepia::type::generic) {
+            if (header.event_stream_type != sepia::type::generic) {
                 properties.emplace_back("width", std::to_string(header.width));
                 properties.emplace_back("height", std::to_string(header.height));
             }
-            switch (header.type) {
+            switch (header.event_stream_type) {
                 case sepia::type::generic: {
                     auto first = true;
                     uint64_t begin_t;

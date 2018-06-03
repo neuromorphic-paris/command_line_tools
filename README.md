@@ -125,6 +125,7 @@ After changing the code, format the source files by running from the *utilities*
 ```sh
 for file in source/*.hpp; do clang-format -i $file; done;
 for file in source/*.cpp; do clang-format -i $file; done;
+for file in scripts/*.cpp; do clang-format -i $file; done;
 ```
 
 # License
