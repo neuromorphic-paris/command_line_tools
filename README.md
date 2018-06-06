@@ -2,18 +2,20 @@
 
 Utilities bundles several command-line applications and scripts to manipulate event files.
 
-# Install
+# install
+
+## clone
 
 To download Utilities, run the command:
 ```sh
 git clone --recursive https://github.com/neuromorphic-paris/utilities.git
 ```
 
-## Applications
+## applications
 
 The provided applications rely on [Premake 4.x](https://github.com/premake/premake-4.x) (x ≥ 3) to generate build configurations. Follow these steps to install it:
   - __Debian / Ubuntu__: Open a terminal and execute the command `sudo apt-get install premake4`.
-  - __OS X__: Open a terminal and execute the command `brew install premake`. If the command is not found, you need to install Homebrew first with the command<br />
+  - __macOS__: Open a terminal and execute the command `brew install premake`. If the command is not found, you need to install Homebrew first with the command<br />
     `ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`.
 
 Run the following commands from the *utilities* directory to compile the applications:
@@ -26,16 +28,16 @@ cd release
 
 The command-line applications are located in the *release* directory.
 
-## Scripts
+## scripts
 
 The scripts use [Python 3](https://www.python.org). Follow these steps to install it:
   - __Debian / Ubuntu__: Open a terminal and execute the command `sudo apt-get install python3`.
-  - __OS X__: Open a terminal and execute the command `brew install python3`. If the command is not found, you need to install Homebrew first with the command<br />
+  - __macOS__: Open a terminal and execute the command `brew install python3`. If the command is not found, you need to install Homebrew first with the command<br />
     `ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`.
 
-# Documentation
+# documentation
 
-## Applications
+## applications
 
 ### cut
 
@@ -87,7 +89,7 @@ statistics retrieves the event stream's properties and outputs them in JSON form
 Available options:
   - `-h`, `--help` shows the help message
 
-## Scripts
+## scripts
 
 ### run_for_each.py
 
@@ -100,16 +102,16 @@ Example:
 python3 run_for_each.py ../build/release/es_to_csv '/Users/Bob/event_streams/*.es' '/Users/Bob/csvs' .csv
 ```
 
-# Contribute
+# contribute
 
-## Development dependencies
+## development dependencies
 
 [ClangFormat](https://clang.llvm.org/docs/ClangFormat.html) is used to unify coding styles. Follow these steps to install it:
-  - __Debian / Ubuntu__: Open a terminal and execute the command `sudo apt-get install clang-format`.
-  - __OS X__: Open a terminal and execute the command `brew install clang-format`. If the command is not found, you need to install Homebrew first with the command<br />
+- __Debian / Ubuntu__: Open a terminal and execute the command `sudo apt-get install clang-format`.
+- __macOS__: Open a terminal and execute the command `brew install clang-format`. If the command is not found, you need to install Homebrew first with the command<br />
     `ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`.
 
-## Test
+## test
 
 To test the library, run from the *utilities* directory:
 ```sh
@@ -128,6 +130,6 @@ for file in source/*.cpp; do clang-format -i $file; done;
 for file in scripts/*.cpp; do clang-format -i $file; done;
 ```
 
-# License
+# license
 
 See the [LICENSE](LICENSE.txt) file for license rights and limitations (GNU GPLv3).
