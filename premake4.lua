@@ -6,8 +6,6 @@ solution 'utilities'
         language 'C++'
         location 'build'
         files {'source/cut.cpp'}
-        buildoptions {'-std=c++11'}
-        linkoptions {'-std=c++11'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
@@ -18,13 +16,18 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'dat_to_es'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
         files {'source/dat_to_es.cpp'}
-        buildoptions {'-std=c++11'}
-        linkoptions {'-std=c++11'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
@@ -35,13 +38,18 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'es_to_csv'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
         files {'source/es_to_csv.cpp'}
-        buildoptions {'-std=c++11'}
-        linkoptions {'-std=c++11'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
@@ -52,13 +60,18 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'rainmaker'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
         files {'source/html.hpp', 'third_party/lodepng/lodepng.cpp', 'source/rainmaker.cpp'}
-        buildoptions {'-std=c++11'}
-        linkoptions {'-std=c++11'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
@@ -69,13 +82,18 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'statistics'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
         files {'source/statistics.cpp'}
-        buildoptions {'-std=c++11'}
-        linkoptions {'-std=c++11'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
@@ -86,3 +104,10 @@ solution 'utilities'
             flags {'Symbols'}
         configuration 'linux'
             links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
