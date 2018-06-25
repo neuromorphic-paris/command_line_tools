@@ -56,11 +56,11 @@ header read_header(std::istream& stream) {
         if (words.size() > 1) {
             try {
                 if (words[0] == "Version") {
-                    header.version = stoul(words[1]);
+                    header.version = static_cast<uint8_t>(stoul(words[1]));
                 } else if (words[0] == "Width") {
-                    header.width = stoul(words[1]);
+                    header.width = static_cast<uint16_t>(stoul(words[1]));
                 } else if (words[0] == "Height") {
-                    header.height = stoul(words[1]);
+                    header.height = static_cast<uint16_t>(stoul(words[1]));
                 }
             } catch (const std::invalid_argument&) {
             } catch (const std::out_of_range&) {

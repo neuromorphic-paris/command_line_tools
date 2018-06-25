@@ -1,4 +1,3 @@
-R""""(
 /** X3DOM Runtime, http://www.x3dom.org/ 1.7.2 - 61a235203deb34329fe615cbbf21314db6ebf49f - Mon Dec 19 19:17:05 2016 +0100 */
 if(!Array.forEach){Array.forEach=function(array,fun,thisp){var len=array.length;for(var i=0;i<len;i++){if(i in array){fun.call(thisp,array[i],i,array);}}};}
 if(!Array.map){Array.map=function(array,fun,thisp){var len=array.length;var res=[];for(var i=0;i<len;i++){if(i in array){res[i]=fun.call(thisp,array[i],i,array);}}
@@ -4868,4 +4867,3 @@ else
 {}},_stopDragging:function()
 {x3dom.nodeTypes.X3DDragSensorNode.prototype._stopDragging.call(this);if(this._vf.autoOffset)
 {this._vf.offset=this._currentRotation.angle();this.postMessage('offset_changed',this._vf.offset);}}}));x3dom.versionInfo={version:'1.7.2',revision:'61a235203deb34329fe615cbbf21314db6ebf49f',date:'Mon Dec 19 19:17:05 2016 +0100'};
-)""""

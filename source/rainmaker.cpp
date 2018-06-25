@@ -6,12 +6,18 @@
 #include <numeric>
 
 /// exposure_measurement represents an exposure measurement as a time delta.
-struct exposure_measurement {
+SEPIA_PACK(struct exposure_measurement {
     uint64_t t;
+    uint64_t delta_t;
     uint16_t x;
     uint16_t y;
-    uint64_t delta_t;
-} __attribute__((packed));
+});
+
+/// filename_to_string reads the contents of a file to a string.
+std::string filename_to_string(const std::string& filename) {
+    auto stream = sepia::filename_to_ifstream(filename);
+    return std::string(std::istreambuf_iterator<char>(*stream), std::istreambuf_iterator<char>());
+}
 
 int main(int argc, char* argv[]) {
     return pontella::main(
@@ -45,9 +51,7 @@ int main(int argc, char* argv[]) {
         },
         {},
         [](pontella::command command) {
-            const auto nodes = html::parse(
-#include "rainmaker.html"
-            );
+            const auto nodes = html::parse(filename_to_string(sepia::join({SEPIA_DIRNAME, "rainmaker.html"})));
             uint64_t begin_t = 0;
             {
                 const auto name_and_argument = command.options.find("timestamp");
@@ -118,7 +122,7 @@ int main(int argc, char* argv[]) {
                                 header.height,
                                 [](sepia::threshold_crossing threshold_crossing,
                                    uint64_t delta_t) -> exposure_measurement {
-                                    return {threshold_crossing.t, threshold_crossing.x, threshold_crossing.y, delta_t};
+                                    return {threshold_crossing.t, delta_t, threshold_crossing.x, threshold_crossing.y};
                                 },
                                 [&](exposure_measurement exposure_measurement) {
                                     if (exposure_measurement.t >= end_t) {
@@ -286,7 +290,11 @@ int main(int argc, char* argv[]) {
                 sepia::read_header(event_stream);
                 const auto event_stream_as_string = event_stream.str();
                 events_bytes.assign(
-                    std::next(event_stream_as_string.begin(), event_stream.tellg()), event_stream_as_string.end());
+                    std::next(
+                        event_stream_as_string.begin(),
+                        static_cast<std::iterator_traits<std::vector<uint8_t>::iterator>::difference_type>(
+                            event_stream.tellg())),
+                    event_stream_as_string.end());
             }
 
             // encode the base frame
@@ -333,8 +341,7 @@ int main(int argc, char* argv[]) {
                     {"events", html::variable(html::bytes_to_encoded_characters(events_bytes))},
                     {"x3dom",
                      html::variable(
-#include "../third_party/x3dom.js"
-                         )},
+                         filename_to_string(sepia::join({sepia::dirname(SEPIA_DIRNAME), "third_party", "x3dom.js"})))},
                 });
         });
 }
