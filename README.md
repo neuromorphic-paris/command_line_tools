@@ -33,6 +33,16 @@ If the command is not found, you need to install Homebrew first with the command
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
+#### Windows
+
+Download and install:
+- [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/). Select at least __Desktop development with C++__ when asked.
+- [git](https://git-scm.com)
+- [premake 4.x](https://premake.github.io/download.html). In order to use it from the command line, the *premake4.exe* executable must be copied to a directory in your path. After downloading and decompressing *premake-4.4-beta5-windows.zip*, run from the command line:
+  ```sh
+copy "%userprofile%\Downloads\premake-4.4-beta5-windows\premake4.exe" "%userprofile%\AppData\Local\Microsoft\WindowsApps"
+  ```
+
 ### compile
 
 Run the following commands from the *utilities* directory to compile the applications:
@@ -43,14 +53,33 @@ make
 cd release
 ```
 
+__Windows__ users must run `premake4 vs2010` instead, and open the generated solution with Visual Studio.
+
 The command-line applications are located in the *release* directory.
 
 ## scripts
 
-The scripts use [Python 3](https://www.python.org). Follow these steps to install it:
-  - __Debian / Ubuntu__: Open a terminal and execute the command `sudo apt-get install python3`.
-  - __macOS__: Open a terminal and execute the command `brew install python3`. If the command is not found, you need to install Homebrew first with the command<br />
-    `ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`.
+### Debian / Ubuntu
+
+Open a terminal and run:
+```sh
+sudo apt install python3 # programming language
+```
+
+### macOS
+
+Open a terminal and run:
+```sh
+brew install python3 # programming language
+```
+If the command is not found, you need to install Homebrew first with the command:
+```sh
+ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```
+
+#### Windows
+
+Download and install [python 3.x](https://www.python.org/downloads/windows/).
 
 # documentation
 
@@ -147,6 +176,8 @@ make
 cd release
 ```
 
+__Windows__ users must run `premake4 vs2010` instead, and open the generated solution with Visual Studio.
+
 You can then run sequentially the executables located in the *release* directory.
 
 After changing the code, format the source files by running from the *utilities* directory:
@@ -155,6 +186,8 @@ for file in source/*.hpp; do clang-format -i $file; done;
 for file in source/*.cpp; do clang-format -i $file; done;
 for file in scripts/*.cpp; do clang-format -i $file; done;
 ```
+
+__Windows__ users must run *Edit* > *Advanced* > *Format Document* from the Visual Studio menu instead.
 
 # license
 
