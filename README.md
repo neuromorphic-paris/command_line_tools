@@ -57,7 +57,7 @@ __Windows__ users must run `premake4 vs2010` instead, and open the generated sol
 
 The command-line applications are located in the *release* directory.
 
-## scripts
+## scripts dependencies
 
 ### Debian / Ubuntu
 
@@ -77,7 +77,7 @@ If the command is not found, you need to install Homebrew first with the command
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-#### Windows
+### Windows
 
 Download and install [python 3.x](https://www.python.org/downloads/windows/).
 
