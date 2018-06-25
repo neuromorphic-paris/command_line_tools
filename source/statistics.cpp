@@ -13,6 +13,7 @@ std::string type_to_string(sepia::type type) {
         case sepia::type::color:
             return "color";
     }
+    return "unknown";
 }
 
 /// properties_to_json converts a list of properties to pretty-printed JSON.
@@ -46,7 +47,7 @@ int main(int argc, char* argv[]) {
                  std::string("\"") + std::to_string(static_cast<uint32_t>(std::get<0>(header.version))) + "."
                      + std::to_string(static_cast<uint32_t>(std::get<1>(header.version))) + "."
                      + std::to_string(static_cast<uint32_t>(std::get<2>(header.version))) + "\""},
-                 {"type", std::string("\"") + type_to_string(header.event_stream_type) + "\""},
+                {"type", std::string("\"") + type_to_string(header.event_stream_type) + "\""},
             };
             if (header.event_stream_type != sepia::type::generic) {
                 properties.emplace_back("width", std::to_string(header.width));

@@ -6,7 +6,7 @@
 #include <numeric>
 
 /// exposure_measurement represents an exposure measurement as a time delta.
-SEPIA_PACKED(struct exposure_measurement {
+SEPIA_PACK(struct exposure_measurement {
     uint64_t t;
     uint64_t delta_t;
     uint16_t x;
@@ -286,7 +286,11 @@ int main(int argc, char* argv[]) {
                 sepia::read_header(event_stream);
                 const auto event_stream_as_string = event_stream.str();
                 events_bytes.assign(
-                    std::next(event_stream_as_string.begin(), event_stream.tellg()), event_stream_as_string.end());
+                    std::next(
+                        event_stream_as_string.begin(),
+                        static_cast<std::iterator_traits<std::vector<uint8_t>::iterator>::difference_type>(
+                            event_stream.tellg())),
+                    event_stream_as_string.end());
             }
 
             // encode the base frame
