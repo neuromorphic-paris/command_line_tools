@@ -13,6 +13,12 @@ SEPIA_PACK(struct exposure_measurement {
     uint16_t y;
 });
 
+/// filename_to_string reads the contents of a file to a string.
+std::string filename_to_string(const std::string& filename) {
+    auto stream = sepia::filename_to_ifstream(filename);
+    return std::string(std::istreambuf_iterator<char>(*stream), std::istreambuf_iterator<char>());
+}
+
 int main(int argc, char* argv[]) {
     return pontella::main(
         {"rainmaker generates a standalone HTML file containing a 3D representation of events",
@@ -45,9 +51,7 @@ int main(int argc, char* argv[]) {
         },
         {},
         [](pontella::command command) {
-            const auto nodes = html::parse(
-#include "rainmaker.html"
-            );
+            const auto nodes = html::parse(filename_to_string(sepia::join({SEPIA_DIRNAME, "rainmaker.html"})));
             uint64_t begin_t = 0;
             {
                 const auto name_and_argument = command.options.find("timestamp");
@@ -337,8 +341,7 @@ int main(int argc, char* argv[]) {
                     {"events", html::variable(html::bytes_to_encoded_characters(events_bytes))},
                     {"x3dom",
                      html::variable(
-#include "../third_party/x3dom.js"
-                         )},
+                         filename_to_string(sepia::join({sepia::dirname(SEPIA_DIRNAME), "third_party", "x3dom.js"})))},
                 });
         });
 }

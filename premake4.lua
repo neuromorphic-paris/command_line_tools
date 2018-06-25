@@ -72,6 +72,7 @@ solution 'utilities'
         language 'C++'
         location 'build'
         files {'source/html.hpp', 'third_party/lodepng/lodepng.cpp', 'source/rainmaker.cpp'}
+        defines {'SEPIA_COMPILER_WORKING_DIRECTORY="' .. project().location .. '"'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
