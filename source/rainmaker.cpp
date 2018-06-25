@@ -6,12 +6,12 @@
 #include <numeric>
 
 /// exposure_measurement represents an exposure measurement as a time delta.
-struct exposure_measurement {
+SEPIA_PACKED(struct exposure_measurement {
     uint64_t t;
+    uint64_t delta_t;
     uint16_t x;
     uint16_t y;
-    uint64_t delta_t;
-} __attribute__((packed));
+});
 
 int main(int argc, char* argv[]) {
     return pontella::main(
@@ -118,7 +118,7 @@ int main(int argc, char* argv[]) {
                                 header.height,
                                 [](sepia::threshold_crossing threshold_crossing,
                                    uint64_t delta_t) -> exposure_measurement {
-                                    return {threshold_crossing.t, threshold_crossing.x, threshold_crossing.y, delta_t};
+                                    return {threshold_crossing.t, delta_t, threshold_crossing.x, threshold_crossing.y};
                                 },
                                 [&](exposure_measurement exposure_measurement) {
                                     if (exposure_measurement.t >= end_t) {
