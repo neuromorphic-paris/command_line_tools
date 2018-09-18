@@ -98,10 +98,10 @@ Available options:
 
 dat_to_es converts a TD file (and an optional APS file) to an Event Stream file:
 ```
-./dat_to_es [options] /path/to/input_td.dat /path/to/output.es
+./dat_to_es [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es
 ```
+If the string `none` is used for the td (respectively, aps) file, the Event Stream file is build from the aps (respectively, td) file only.
 Available options:
-  - `-a [/path/to/input_aps.dat]`, `--aps [/path/to/input_aps.dat]` merges `input_td` and `input_aps` into a single ATIS Event Stream file. If this option is not used, a DVS Event Stream file is generated.
   - `-h`, `--help` shows the help message
 
 ### es_to_csv
