@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
                     auto first = true;
                     uint64_t begin_t;
                     uint64_t end_t;
-                    std::size_t events;
+                    std::size_t events = 0;
                     uint64_t size_sum = 0;
                     sepia::join_observable<sepia::type::generic>(
                         sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::generic_event generic_event) {
@@ -81,10 +81,10 @@ int main(int argc, char* argv[]) {
                     auto first = true;
                     uint64_t begin_t;
                     uint64_t end_t;
-                    std::size_t events;
+                    std::size_t events = 0;
                     uint64_t x_sum = 0;
                     uint64_t y_sum = 0;
-                    std::size_t increase_events;
+                    std::size_t increase_events = 0;
                     sepia::join_observable<sepia::type::dvs>(
                         sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::dvs_event dvs_event) {
                             if (first) {
@@ -112,12 +112,12 @@ int main(int argc, char* argv[]) {
                     auto first = true;
                     uint64_t begin_t;
                     uint64_t end_t;
-                    std::size_t events;
+                    std::size_t events = 0;
                     uint64_t x_sum = 0;
                     uint64_t y_sum = 0;
-                    std::size_t dvs_events;
-                    std::size_t increase_events;
-                    std::size_t second_events;
+                    std::size_t dvs_events = 0;
+                    std::size_t increase_events = 0;
+                    std::size_t second_events = 0;
                     sepia::join_observable<sepia::type::atis>(
                         sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::atis_event atis_event) {
                             if (first) {
@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
                     auto first = true;
                     uint64_t begin_t;
                     uint64_t end_t;
-                    std::size_t events;
+                    std::size_t events = 0;
                     uint64_t x_sum = 0;
                     uint64_t y_sum = 0;
                     uint64_t r_sum = 0;
@@ -183,8 +183,6 @@ int main(int argc, char* argv[]) {
                     properties.emplace_back("g_sum", std::to_string(g_sum));
                     properties.emplace_back("b_sum", std::to_string(r_sum));
                     std::cout << properties_to_json(properties) << std::endl;
-                    break;
-
                     break;
                 }
             }
