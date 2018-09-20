@@ -156,6 +156,8 @@ class MexFunction : public matlab::mex::Function {
                 outputs[1] = std::move(matlab_events);
                 break;
             }
+            default:
+                error("unsupported event type");
         }
     }
 };
