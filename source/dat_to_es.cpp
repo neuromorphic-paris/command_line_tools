@@ -116,6 +116,16 @@ int main(int argc, char* argv[]) {
             if (command.arguments[0] == command.arguments[1]) {
                 throw std::runtime_error("The td and aps inputs must be different files, and cannot be both none");
             }
+            if (command.arguments[0].find("td") == std::string::npos) {
+                std::cout << "The file " << command.arguments[0] << " does not have 'td' in its name. Do you want to continue anyway? (Y/n)" << '\n';
+                std::string answer;
+                std::getline(std::cin, answer);
+                if (answer == "n") {
+                    throw std::runtime_error("Aborting...");
+                } else {
+                    std::cout << "Continuing..." << '\n';
+		            }
+	          }
             if (command.arguments[0] == command.arguments[2]) {
                 throw std::runtime_error("The td input and the Event Stream output must be different files");
             }
