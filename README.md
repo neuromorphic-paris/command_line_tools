@@ -24,6 +24,7 @@ The bindings provided by utilities are tools to read and write Event Stream file
 Open a terminal and run:
 ```sh
 sudo apt install python3 # or 'sudo apt install python' for python 2.x
+sudo apt install python3-pip # or 'sudo apt install python-pip' for python 2.x
 pip3 install numpy # or 'pip install numpy' for python 2.x
 ```
 
