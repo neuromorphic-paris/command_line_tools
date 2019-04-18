@@ -3,14 +3,93 @@
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
 
-#include <iostream> // @DEBUG
-
 /// count determines the number of events in the given stream.
 template <sepia::type event_stream_type>
-std::size_t count(std::unique_ptr<std::istream> stream) {
-    std::size_t events = 0;
-    sepia::join_observable<event_stream_type>(std::move(stream), [&](sepia::event<event_stream_type>) { ++events; });
-    return events;
+npy_intp count(std::unique_ptr<std::istream> stream) {
+    npy_intp size = 0;
+    sepia::join_observable<event_stream_type>(std::move(stream), [&](sepia::event<event_stream_type>) { ++size; });
+    return size;
+}
+
+/// description represents a named type with an offset.
+struct description {
+    std::string name;
+    NPY_TYPES type;
+};
+
+/// descriptions returns the fields names, scalar types and offsets associated with an event type.
+template <sepia::type event_stream_type>
+std::vector<description> get_descriptions();
+template <>
+std::vector<description> get_descriptions<sepia::type::generic>() {
+    return {{"t", NPY_UINT64}, {"bytes", NPY_OBJECT}};
+}
+template <>
+std::vector<description> get_descriptions<sepia::type::dvs>() {
+    return {{"t", NPY_UINT64}, {"x", NPY_UINT16}, {"y", NPY_UINT16}, {"is_increase", NPY_BOOL}};
+}
+template <>
+std::vector<description> get_descriptions<sepia::type::atis>() {
+    return {{"t", NPY_UINT64},
+            {"x", NPY_UINT16},
+            {"y", NPY_UINT16},
+            {"is_threshold_crossing", NPY_BOOL},
+            {"polarity", NPY_BOOL}};
+}
+template <>
+std::vector<description> get_descriptions<sepia::type::color>() {
+    return {
+        {"t", NPY_UINT64}, {"x", NPY_UINT16}, {"y", NPY_UINT16}, {"r", NPY_UINT8}, {"g", NPY_UINT8}, {"b", NPY_UINT8}};
+}
+
+/// offsets calculates the packed offsets from the description types.
+template <sepia::type event_stream_type>
+std::vector<uint8_t> get_offsets() {
+    auto descriptions = get_descriptions<event_stream_type>();
+    std::vector<uint8_t> offsets(descriptions.size(), 0);
+    for (std::size_t index = 1; index < descriptions.size(); ++index) {
+        switch (descriptions[index - 1].type) {
+            case NPY_BOOL:
+            case NPY_UINT8:
+                offsets[index] = offsets[index - 1] + 1;
+                break;
+            case NPY_UINT16:
+                offsets[index] = offsets[index - 1] + 2;
+                break;
+            case NPY_UINT64:
+                offsets[index] = offsets[index - 1] + 8;
+                break;
+            default:
+                throw std::runtime_error("unknown type for offset calculation");
+        }
+    }
+    return offsets;
+}
+
+/// stream_to_array returns a structured array with the required length to accomodate the given stream.
+template <sepia::type event_stream_type>
+PyArrayObject* stream_to_array(std::unique_ptr<std::istream> stream) {
+    const auto descriptions = get_descriptions<event_stream_type>();
+    auto python_names_and_types = PyList_New(static_cast<Py_ssize_t>(descriptions.size()));
+    for (Py_ssize_t index = 0; index < static_cast<Py_ssize_t>(descriptions.size()); ++index) {
+        if (PyList_SetItem(
+                python_names_and_types,
+                index,
+                PyTuple_Pack(
+                    2,
+                    PyUnicode_FromString(descriptions[index].name.c_str()),
+                    PyArray_TypeObjectFromType(descriptions[index].type)))
+            < 0) {
+            throw std::runtime_error("PyList_SetItem failed");
+        }
+    }
+    PyArray_Descr* dtype;
+    if (PyArray_DescrConverter(python_names_and_types, &dtype) == NPY_FAIL) {
+        throw std::runtime_error("PyArray_DescrConverter failed");
+    }
+    auto size = count<event_stream_type>(std::move(stream));
+    return reinterpret_cast<PyArrayObject*>(
+        PyArray_NewFromDescr(&PyArray_Type, dtype, 1, &size, nullptr, nullptr, 0, nullptr));
 }
 
 /// read loads events from an Event Stream file.
@@ -19,129 +98,85 @@ static PyObject* read(PyObject* self, PyObject* args) {
     if (!PyArg_ParseTuple(args, "s", &filename_as_char_array)) {
         return nullptr;
     }
-    auto events = PyDict_New();
+    auto stream = PyDict_New();
     try {
         const std::string filename(filename_as_char_array);
         const auto header = sepia::read_header(sepia::filename_to_ifstream(filename));
         switch (header.event_stream_type) {
             case sepia::type::generic: {
-                auto number_of_events =
-                    static_cast<npy_intp>(count<sepia::type::generic>(sepia::filename_to_ifstream(filename)));
-                auto t = PyArray_SimpleNew(1, &number_of_events, NPY_UINT64);
-                auto bytes = PyArray_SimpleNew(1, &number_of_events, NPY_OBJECT);
-                std::size_t index = 0;
+                auto events = stream_to_array<sepia::type::generic>(sepia::filename_to_ifstream(filename));
+                const auto offsets = get_offsets<sepia::type::generic>();
+                npy_intp index = 0;
                 sepia::join_observable<sepia::type::generic>(
                     sepia::filename_to_ifstream(filename), [&](sepia::generic_event generic_event) {
-                        *reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)) =
-                            generic_event.t;
-                        *reinterpret_cast<PyObject**>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(bytes), index)) =
-                            PyBytes_FromStringAndSize(
-                                reinterpret_cast<const char*>(generic_event.bytes.data()), generic_event.bytes.size());
+                        auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                        *reinterpret_cast<uint64_t*>(payload + offsets[0]) = generic_event.t;
+                        *reinterpret_cast<PyObject**>(payload + offsets[1]) = PyBytes_FromStringAndSize(
+                            reinterpret_cast<const char*>(generic_event.bytes.data()), generic_event.bytes.size());
                         ++index;
                     });
-                PyDict_SetItem(events, PyUnicode_FromString("type"), PyUnicode_FromString("generic"));
-                PyDict_SetItem(events, PyUnicode_FromString("t"), t);
-                PyDict_SetItem(events, PyUnicode_FromString("bytes"), bytes);
+                PyDict_SetItem(stream, PyUnicode_FromString("type"), PyUnicode_FromString("generic"));
+                PyDict_SetItem(stream, PyUnicode_FromString("events"), reinterpret_cast<PyObject*>(events));
                 break;
             }
             case sepia::type::dvs: {
-                auto number_of_events =
-                    static_cast<npy_intp>(count<sepia::type::dvs>(sepia::filename_to_ifstream(filename)));
-                auto t = PyArray_SimpleNew(1, &number_of_events, NPY_UINT64);
-                auto x = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto y = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto is_increase = PyArray_SimpleNew(1, &number_of_events, NPY_BOOL);
-                std::size_t index = 0;
+                auto events = stream_to_array<sepia::type::dvs>(sepia::filename_to_ifstream(filename));
+                const auto offsets = get_offsets<sepia::type::dvs>();
+                npy_intp index = 0;
                 sepia::join_observable<sepia::type::dvs>(
                     sepia::filename_to_ifstream(filename), [&](sepia::dvs_event dvs_event) {
-                        *reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)) =
-                            dvs_event.t;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)) =
-                            dvs_event.x;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)) =
-                            dvs_event.y;
-                        *reinterpret_cast<bool*>(PyArray_GETPTR1(
-                            reinterpret_cast<PyArrayObject*>(is_increase), index)) = dvs_event.is_increase;
+                        auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                        *reinterpret_cast<uint64_t*>(payload + offsets[0]) = dvs_event.t;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[1]) = dvs_event.x;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[2]) = dvs_event.y;
+                        *reinterpret_cast<bool*>(payload + offsets[3]) = dvs_event.is_increase;
                         ++index;
                     });
-                PyDict_SetItem(events, PyUnicode_FromString("type"), PyUnicode_FromString("dvs"));
-                PyDict_SetItem(events, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
-                PyDict_SetItem(events, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
-                PyDict_SetItem(events, PyUnicode_FromString("t"), t);
-                PyDict_SetItem(events, PyUnicode_FromString("x"), x);
-                PyDict_SetItem(events, PyUnicode_FromString("y"), y);
-                PyDict_SetItem(events, PyUnicode_FromString("is_increase"), is_increase);
+                PyDict_SetItem(stream, PyUnicode_FromString("type"), PyUnicode_FromString("dvs"));
+                PyDict_SetItem(stream, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
+                PyDict_SetItem(stream, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
+                PyDict_SetItem(stream, PyUnicode_FromString("events"), reinterpret_cast<PyObject*>(events));
                 break;
             }
             case sepia::type::atis: {
-                auto number_of_events =
-                    static_cast<npy_intp>(count<sepia::type::atis>(sepia::filename_to_ifstream(filename)));
-                auto t = PyArray_SimpleNew(1, &number_of_events, NPY_UINT64);
-                auto x = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto y = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto is_threshold_crossing = PyArray_SimpleNew(1, &number_of_events, NPY_BOOL);
-                auto polarity = PyArray_SimpleNew(1, &number_of_events, NPY_BOOL);
-                std::size_t index = 0;
+                auto events = stream_to_array<sepia::type::atis>(sepia::filename_to_ifstream(filename));
+                const auto offsets = get_offsets<sepia::type::atis>();
+                npy_intp index = 0;
                 sepia::join_observable<sepia::type::atis>(
                     sepia::filename_to_ifstream(filename), [&](sepia::atis_event atis_event) {
-                        *reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)) =
-                            atis_event.t;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)) =
-                            atis_event.x;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)) =
-                            atis_event.y;
-                        *reinterpret_cast<bool*>(
-                            PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(is_threshold_crossing), index)) =
-                            atis_event.is_threshold_crossing;
-                        *reinterpret_cast<bool*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(polarity), index)) =
-                            atis_event.polarity;
+                        auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                        *reinterpret_cast<uint64_t*>(payload + offsets[0]) = atis_event.t;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[1]) = atis_event.x;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[2]) = atis_event.y;
+                        *reinterpret_cast<bool*>(payload + offsets[3]) = atis_event.is_threshold_crossing;
+                        *reinterpret_cast<bool*>(payload + offsets[4]) = atis_event.polarity;
                         ++index;
                     });
-                PyDict_SetItem(events, PyUnicode_FromString("type"), PyUnicode_FromString("atis"));
-                PyDict_SetItem(events, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
-                PyDict_SetItem(events, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
-                PyDict_SetItem(events, PyUnicode_FromString("t"), t);
-                PyDict_SetItem(events, PyUnicode_FromString("x"), x);
-                PyDict_SetItem(events, PyUnicode_FromString("y"), y);
-                PyDict_SetItem(events, PyUnicode_FromString("is_threshold_crossing"), is_threshold_crossing);
-                PyDict_SetItem(events, PyUnicode_FromString("polarity"), polarity);
+                PyDict_SetItem(stream, PyUnicode_FromString("type"), PyUnicode_FromString("atis"));
+                PyDict_SetItem(stream, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
+                PyDict_SetItem(stream, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
+                PyDict_SetItem(stream, PyUnicode_FromString("events"), reinterpret_cast<PyObject*>(events));
                 break;
             }
             case sepia::type::color: {
-                auto number_of_events =
-                    static_cast<npy_intp>(count<sepia::type::color>(sepia::filename_to_ifstream(filename)));
-                auto t = PyArray_SimpleNew(1, &number_of_events, NPY_UINT64);
-                auto x = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto y = PyArray_SimpleNew(1, &number_of_events, NPY_UINT16);
-                auto r = PyArray_SimpleNew(1, &number_of_events, NPY_UINT8);
-                auto g = PyArray_SimpleNew(1, &number_of_events, NPY_UINT8);
-                auto b = PyArray_SimpleNew(1, &number_of_events, NPY_UINT8);
-                std::size_t index = 0;
+                auto events = stream_to_array<sepia::type::color>(sepia::filename_to_ifstream(filename));
+                const auto offsets = get_offsets<sepia::type::color>();
+                npy_intp index = 0;
                 sepia::join_observable<sepia::type::color>(
                     sepia::filename_to_ifstream(filename), [&](sepia::color_event color_event) {
-                        *reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)) =
-                            color_event.t;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)) =
-                            color_event.x;
-                        *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)) =
-                            color_event.y;
-                        *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(r), index)) =
-                            color_event.r;
-                        *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(g), index)) =
-                            color_event.g;
-                        *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(b), index)) =
-                            color_event.b;
+                        auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                        *reinterpret_cast<uint64_t*>(payload + offsets[0]) = color_event.t;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[1]) = color_event.x;
+                        *reinterpret_cast<uint16_t*>(payload + offsets[2]) = color_event.y;
+                        *reinterpret_cast<uint8_t*>(payload + offsets[3]) = color_event.r;
+                        *reinterpret_cast<uint8_t*>(payload + offsets[4]) = color_event.g;
+                        *reinterpret_cast<uint8_t*>(payload + offsets[5]) = color_event.b;
                         ++index;
                     });
-                PyDict_SetItem(events, PyUnicode_FromString("type"), PyUnicode_FromString("color"));
-                PyDict_SetItem(events, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
-                PyDict_SetItem(events, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
-                PyDict_SetItem(events, PyUnicode_FromString("t"), t);
-                PyDict_SetItem(events, PyUnicode_FromString("x"), x);
-                PyDict_SetItem(events, PyUnicode_FromString("y"), y);
-                PyDict_SetItem(events, PyUnicode_FromString("r"), r);
-                PyDict_SetItem(events, PyUnicode_FromString("g"), g);
-                PyDict_SetItem(events, PyUnicode_FromString("b"), b);
+                PyDict_SetItem(stream, PyUnicode_FromString("type"), PyUnicode_FromString("color"));
+                PyDict_SetItem(stream, PyUnicode_FromString("width"), PyLong_FromUnsignedLong(header.width));
+                PyDict_SetItem(stream, PyUnicode_FromString("height"), PyLong_FromUnsignedLong(header.height));
+                PyDict_SetItem(stream, PyUnicode_FromString("events"), reinterpret_cast<PyObject*>(events));
                 break;
             }
             default:
@@ -149,13 +184,14 @@ static PyObject* read(PyObject* self, PyObject* args) {
         }
     } catch (const std::runtime_error& exception) {
         PyErr_SetString(PyExc_RuntimeError, exception.what());
-        events = nullptr;
+        stream = nullptr;
     }
-    return events;
+    return stream;
 }
 
-/// get_array loads a PyArray from a dict.
-static PyArrayObject* get_array(PyObject* dict, const std::string& key, int32_t type, const std::string& type_name) {
+/*
+/// get_events loads the events key from a dict.
+static PyArrayObject* get_events(PyObject* dict, const std::string& key, int32_t type, const std::string& type_name) {
     auto object = PyDict_GetItem(dict, PyUnicode_FromString(key.c_str()));
     if (!object) {
         throw std::runtime_error(std::string("the dict must have a '") + key + "' key");
@@ -169,13 +205,14 @@ static PyArrayObject* get_array(PyObject* dict, const std::string& key, int32_t 
     }
     return array;
 }
+*/
 
-/// width_and_height loads the width and height keys from a dict.
+/// get_width_and_height loads the width and height keys from a dict.
 static std::pair<uint16_t, uint16_t> get_width_and_height(PyObject* dict) {
     std::pair<uint16_t, uint16_t> width_and_height;
     auto width = PyDict_GetItem(dict, PyUnicode_FromString("width"));
     if (!width) {
-        throw std::runtime_error("the dict must have a 'width' key");
+        throw std::runtime_error("the stream dict must have a 'width' key");
     }
     if (!PyLong_Check(width)) {
         throw std::runtime_error("'width' must be a long integer");
@@ -200,15 +237,55 @@ static std::pair<uint16_t, uint16_t> get_width_and_height(PyObject* dict) {
     return width_and_height;
 }
 
+/// get_events makes loads the event key from a dict
+template <sepia::type event_stream_type>
+PyArrayObject* get_events(PyObject* dict) {
+    auto object = PyDict_GetItem(dict, PyUnicode_FromString("events"));
+    if (!object) {
+        throw std::runtime_error("the stream dict must have an 'events' key");
+    }
+    if (!PyArray_Check(object)) {
+        throw std::runtime_error("'events' must be a numpy array");
+    }
+    auto events = reinterpret_cast<PyArrayObject*>(object);
+    if (PyArray_NDIM(events) != 1) {
+        throw std::runtime_error("'events' must have a single dimension");
+    }
+    const auto descriptions = get_descriptions<event_stream_type>();
+    const auto offsets = get_offsets<event_stream_type>();
+    auto fields = PyArray_DESCR(events)->fields;
+    if (!PyMapping_Check(fields)) {
+        throw std::runtime_error("'events' must be a structured array");
+    }
+    for (Py_ssize_t index = 0; index < static_cast<Py_ssize_t>(descriptions.size()); ++index) {
+        auto field = PyMapping_GetItemString(fields, descriptions[index].name.c_str());
+        if (!field) {
+            throw std::runtime_error(
+                std::string("'events' must be a structured array with a '") + descriptions[index].name + "' field");
+        }
+        if (reinterpret_cast<PyArray_Descr*>(PyTuple_GetItem(field, 0))->type_num != descriptions[index].type) {
+            throw std::runtime_error(
+                std::string("the field '") + descriptions[index].name + " of 'events' must have the type "
+                + std::to_string(descriptions[index].type));
+        }
+        if (PyLong_AsLong(PyTuple_GetItem(field, 1)) != offsets[index]) {
+            throw std::runtime_error(
+                std::string("the field '") + descriptions[index].name + " of 'events' must have the offset "
+                + std::to_string(offsets[index]));
+        }
+    }
+    return events;
+}
+
 /// write stores events to an Event Stream file.
 static PyObject* write(PyObject* self, PyObject* args) {
-    PyObject* events;
+    PyObject* stream;
     const char* filename_as_char_array;
-    if (!PyArg_ParseTuple(args, "O!s", &PyDict_Type, &events, &filename_as_char_array)) {
+    if (!PyArg_ParseTuple(args, "O!s", &PyDict_Type, &stream, &filename_as_char_array)) {
         return nullptr;
     }
     try {
-        auto type = PyDict_GetItem(events, PyUnicode_FromString("type"));
+        auto type = PyDict_GetItem(stream, PyUnicode_FromString("type"));
         if (!type) {
             throw std::runtime_error("the dict must have a 'type' key");
         }
@@ -219,92 +296,66 @@ static PyObject* write(PyObject* self, PyObject* args) {
         const std::string type_as_string(PyBytes_AsString(type_as_python_string));
         Py_DECREF(type_as_python_string);
         if (type_as_string == "generic") {
-            auto t = get_array(events, "t", NPY_UINT64, "a uint64");
-            auto bytes = get_array(events, "bytes", NPY_OBJECT, "an object");
-            if (PyArray_SIZE(t) != PyArray_SIZE(bytes)) {
-                throw std::runtime_error("'t' and 'bytes' must have the same size");
-            }
+            const auto events = get_events<sepia::type::generic>(stream);
+            const auto offsets = get_offsets<sepia::type::generic>();
             sepia::write<sepia::type::generic> write(sepia::filename_to_ofstream(std::string(filename_as_char_array)));
-            for (std::size_t index = 0; index < static_cast<std::size_t>(PyArray_SIZE(t)); ++index) {
-                auto payload =
-                    *reinterpret_cast<PyObject**>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(bytes), index));
-                if (!PyBytes_Check(payload)) {
-                    throw std::runtime_error("'bytes' elements must be bytes strings");
+            for (npy_intp index = 0; index < PyArray_SIZE(events); ++index) {
+                auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                auto bytes = *reinterpret_cast<PyObject**>(payload + offsets[1]);
+                if (!PyBytes_Check(bytes)) {
+                    throw std::runtime_error("'bytes' elements of 'events' must be byte strings");
                 }
-                std::string bytes_as_string(PyBytes_AsString(payload));
-                write({*reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)),
+                std::string bytes_as_string(PyBytes_AsString(bytes));
+                write({*reinterpret_cast<uint64_t*>(payload + offsets[0]),
                        std::vector<uint8_t>(bytes_as_string.begin(), bytes_as_string.end())});
             }
         } else if (type_as_string == "dvs") {
-            const auto width_and_height = get_width_and_height(events);
-            auto t = get_array(events, "t", NPY_UINT64, "a uint64");
-            auto x = get_array(events, "x", NPY_UINT16, "a uint16");
-            auto y = get_array(events, "y", NPY_UINT16, "a uint16");
-            auto is_increase = get_array(events, "is_increase", NPY_BOOL, "a bool");
-            if (PyArray_SIZE(t) != PyArray_SIZE(x) || PyArray_SIZE(t) != PyArray_SIZE(y)
-                || PyArray_SIZE(t) != PyArray_SIZE(is_increase)) {
-                throw std::runtime_error("'t', 'x', 'y' and 'is_increase' must have the same size");
-            }
+            const auto width_and_height = get_width_and_height(stream);
+            const auto events = get_events<sepia::type::dvs>(stream);
+            const auto offsets = get_offsets<sepia::type::dvs>();
             sepia::write<sepia::type::dvs> write(
                 sepia::filename_to_ofstream(std::string(filename_as_char_array)),
                 width_and_height.first,
                 width_and_height.second);
-            for (std::size_t index = 0; index < static_cast<std::size_t>(PyArray_SIZE(t)); ++index) {
-                write(
-                    {*reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)),
-                     *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)),
-                     *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)),
-                     *reinterpret_cast<bool*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(is_increase), index))});
+            for (npy_intp index = 0; index < PyArray_SIZE(events); ++index) {
+                auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                write({*reinterpret_cast<uint64_t*>(payload + offsets[0]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[1]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[2]),
+                       *reinterpret_cast<bool*>(payload + offsets[3])});
             }
         } else if (type_as_string == "atis") {
-            const auto width_and_height = get_width_and_height(events);
-            auto t = get_array(events, "t", NPY_UINT64, "a uint64");
-            auto x = get_array(events, "x", NPY_UINT16, "a uint16");
-            auto y = get_array(events, "y", NPY_UINT16, "a uint16");
-            auto is_threshold_crossing = get_array(events, "is_threshold_crossing", NPY_BOOL, "a bool");
-            auto polarity = get_array(events, "polarity", NPY_BOOL, "a bool");
-            if (PyArray_SIZE(t) != PyArray_SIZE(x) || PyArray_SIZE(t) != PyArray_SIZE(y)
-                || PyArray_SIZE(t) != PyArray_SIZE(is_threshold_crossing)
-                || PyArray_SIZE(t) != PyArray_SIZE(polarity)) {
-                throw std::runtime_error(
-                    "'t', 'x', 'y', 'is_threshold_crossing' and 'polarity' must have the same size");
-            }
+            const auto width_and_height = get_width_and_height(stream);
+            const auto events = get_events<sepia::type::atis>(stream);
+            const auto offsets = get_offsets<sepia::type::atis>();
             sepia::write<sepia::type::atis> write(
                 sepia::filename_to_ofstream(std::string(filename_as_char_array)),
                 width_and_height.first,
                 width_and_height.second);
-            for (std::size_t index = 0; index < static_cast<std::size_t>(PyArray_SIZE(t)); ++index) {
-                write({*reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)),
-                       *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)),
-                       *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)),
-                       *reinterpret_cast<bool*>(
-                           PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(is_threshold_crossing), index)),
-                       *reinterpret_cast<bool*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(polarity), index))});
+            for (npy_intp index = 0; index < PyArray_SIZE(events); ++index) {
+                auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                write({*reinterpret_cast<uint64_t*>(payload + offsets[0]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[1]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[2]),
+                       *reinterpret_cast<bool*>(payload + offsets[3]),
+                       *reinterpret_cast<bool*>(payload + offsets[4])});
             }
         } else if (type_as_string == "color") {
-            const auto width_and_height = get_width_and_height(events);
-            auto t = get_array(events, "t", NPY_UINT64, "a uint64");
-            auto x = get_array(events, "x", NPY_UINT16, "a uint16");
-            auto y = get_array(events, "y", NPY_UINT16, "a uint16");
-            auto r = get_array(events, "r", NPY_UINT8, "a uint8");
-            auto g = get_array(events, "g", NPY_UINT8, "a uint8");
-            auto b = get_array(events, "b", NPY_UINT8, "a uint8");
-            if (PyArray_SIZE(t) != PyArray_SIZE(x) || PyArray_SIZE(t) != PyArray_SIZE(y)
-                || PyArray_SIZE(t) != PyArray_SIZE(r) || PyArray_SIZE(t) != PyArray_SIZE(g)
-                || PyArray_SIZE(t) != PyArray_SIZE(b)) {
-                throw std::runtime_error("'t', 'x', 'y', 'r', 'g' and 'b' must have the same size");
-            }
+            const auto width_and_height = get_width_and_height(stream);
+            const auto events = get_events<sepia::type::color>(stream);
+            const auto offsets = get_offsets<sepia::type::color>();
             sepia::write<sepia::type::color> write(
                 sepia::filename_to_ofstream(std::string(filename_as_char_array)),
                 width_and_height.first,
                 width_and_height.second);
-            for (std::size_t index = 0; index < static_cast<std::size_t>(PyArray_SIZE(t)); ++index) {
-                write({*reinterpret_cast<uint64_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(t), index)),
-                       *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(x), index)),
-                       *reinterpret_cast<uint16_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(y), index)),
-                       *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(r), index)),
-                       *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(g), index)),
-                       *reinterpret_cast<uint8_t*>(PyArray_GETPTR1(reinterpret_cast<PyArrayObject*>(b), index))});
+            for (npy_intp index = 0; index < PyArray_SIZE(events); ++index) {
+                auto payload = reinterpret_cast<uint8_t*>(PyArray_GETPTR1(events, index));
+                write({*reinterpret_cast<uint64_t*>(payload + offsets[0]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[1]),
+                       *reinterpret_cast<uint16_t*>(payload + offsets[2]),
+                       *reinterpret_cast<uint8_t*>(payload + offsets[3]),
+                       *reinterpret_cast<uint8_t*>(payload + offsets[4]),
+                       *reinterpret_cast<uint8_t*>(payload + offsets[5])});
             }
         } else {
             throw std::runtime_error("'type' must be one of {'generic', 'dvs', 'atis', 'color'}");

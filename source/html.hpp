@@ -294,9 +294,9 @@ namespace html {
             } else if (
                 (parts.size() == 2 || parts.size() == 3) && !parts[0].is_expression
                 && std::all_of(
-                       parts[0].content.begin(),
-                       parts[0].content.end(),
-                       [](unsigned char character) { return std::isspace(character); })
+                    parts[0].content.begin(),
+                    parts[0].content.end(),
+                    [](unsigned char character) { return std::isspace(character); })
                 && parts[1].is_expression && parts[1].is_complete
                 && (parts.size() == 2
                     || std::all_of(parts[2].content.begin(), parts[2].content.end(), [](unsigned char character) {
