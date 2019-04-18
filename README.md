@@ -1,4 +1,4 @@
-![utilities](banner.png "The Utilities banner")
+![banner](banner.png)
 
 Utilities bundles several command-line applications and scripts to manipulate event files.
 
@@ -13,7 +13,7 @@ git clone --recursive https://github.com/neuromorphic-paris/utilities.git
 
 ## bindings
 
-The bindings provided by utilities are tools to read and write Event Stream files from python and matlab.
+The bindings provided by utilities are tools to read and write Event Stream files from python and Matlab.
 
 ### python
 
@@ -23,24 +23,24 @@ The bindings provided by utilities are tools to read and write Event Stream file
 
 Open a terminal and run:
 ```sh
-sudo apt install python3 # or 'sudo apt install python' for python 2.x
-sudo apt install python3-pip # or 'sudo apt install python-pip' for python 2.x
-pip3 install numpy # or 'pip install numpy' for python 2.x
+sudo apt install python3
+sudo apt install python3-pip
+pip3 install numpy
 ```
 
 ##### macOS
 
 Open a terminal and run:
 ```sh
-brew install python3 # or 'brew install python' for python 2.x
-pip3 install numpy # or 'pip install numpy' for python 2.x
+brew install python3
+pip3 install numpy
 ```
 
 ##### Windows
 
 Download and install [python](https://www.python.org). Then, open a terminal and run:
 ```sh
-pip3 install numpy # or 'pip install numpy' for python 2.x
+pip3 install numpy
 ```
 
 #### installation
@@ -48,7 +48,7 @@ pip3 install numpy # or 'pip install numpy' for python 2.x
 Open a terminal and run:
 ```sh
 cd bindings/python
-python3 setup.py install # or 'python setup.py install' for python 2.x
+python3 setup.py install
 ```
 
 #### documentation
@@ -60,50 +60,66 @@ import eventstream
 events = eventstream.read('/path/to/input.es')
 eventstream.write(events, '/path/to/output.es')
 ```
-The `events` object returned by `read` and expected by `write` is a python dictionary, with one of the following set of fields (depending on the event type):
+The `stream` object returned by `read` and expected by `write` is a python dictionary, with one of the following set of fields (depending on the event type):
 ```py
 {
-    'type': 'generic', # u'generic' with python 2.x
-    't': numpy.array([...], dtype=numpy.uint64),
-    'bytes': numpy.array([...], dtype=numpy.object_),
+    'type': 'generic',
+    'events': numpy.array(
+        [...],
+        dtype=dtype([('t', '<u8'), ('bytes', 'O')]),
 }
 ```
 The objects associated with the key `bytes` must be byte strings (as an example, `b'abc'`).
 
 ```py
 {
-    'type': 'dvs', # u'dvs' with python 2.x
-    'width': 320, # 320L with python 2.x
-    'height': 240, # 240L with python 2.x
-    't': numpy.array([...], dtype=numpy.uint64),
-    'x': numpy.array([...], dtype=numpy.uint16),
-    'y': numpy.array([...], dtype=numpy.uint16),
-    'is_increase': numpy.array([...], dtype=numpy.bool),
+    'type': 'dvs',
+    'width': 320,
+    'height': 240,
+    'events': numpy.array(
+        [...],
+        dtype=dtype([
+            ('t', '<u8'),
+            ('x', '<u2'),
+            ('y', '<u2'),
+            ('is_increase', '?'),
+        ])
+    ),
 }
 ```
 ```py
 {
-    'type': 'atis', # u'atis' with python 2.x
-    'width': 320, # 320L with python 2.x
-    'height': 240, # 240L with python 2.x
-    't': numpy.array([...], dtype=numpy.uint64),
-    'x': numpy.array([...], dtype=numpy.uint16),
-    'y': numpy.array([...], dtype=numpy.uint16),
-    'is_threshold_crossing': numpy.array([...], dtype=numpy.bool),
-    'polarity': numpy.array([...], dtype=numpy.bool),
+    'type': 'atis',
+    'width': 320,
+    'height': 240,
+    'events': numpy.array(
+        [...],
+        dtype=dtype([
+            ('t', '<u8'),
+            ('x', '<u2'),
+            ('y', '<u2'),
+            ('is_threshold_crossing', '?'),
+            ('polarity', '?'),
+        ])
+    ),
 }
 ```
 ```py
 {
-    'type': 'color', # u'color' with python 2.x
-    'width': 320, # 320L with python 2.x
-    'height': 240, # 240L with python 2.x
-    't': numpy.array([...], dtype=numpy.uint64),
-    'x': numpy.array([...], dtype=numpy.uint16),
-    'y': numpy.array([...], dtype=numpy.uint16),
-    'r': numpy.array([...], dtype=numpy.uint8),
-    'g': numpy.array([...], dtype=numpy.uint8),
-    'b': numpy.array([...], dtype=numpy.uint8),
+    'type': 'color',
+    'width': 320,
+    'height': 240,
+    'events': numpy.array(
+        [...],
+        dtype=dtype([
+            ('t', '<u8'),
+            ('x', '<u2'),
+            ('y', '<u2'),
+            ('r', 'u1'),
+            ('g', 'u1'),
+            ('b', 'u1'),
+        ])
+    ),
 }
 ```
 
@@ -243,7 +259,8 @@ After changing the code, format the source files by running from the *utilities*
 ```sh
 for file in source/*.hpp; do clang-format -i $file; done;
 for file in source/*.cpp; do clang-format -i $file; done;
-for file in scripts/*.cpp; do clang-format -i $file; done;
+for file in bindings/matlab/*.cpp; do clang-format -i $file; done;
+for file in bindings/python/*.cpp; do clang-format -i $file; done;
 ```
 
 __Windows__ users must run *Edit* > *Advanced* > *Format Document* from the Visual Studio menu instead.
