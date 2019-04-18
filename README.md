@@ -1,6 +1,6 @@
 ![banner](banner.png)
 
-Utilities bundles several command-line applications and scripts to manipulate event files.
+Command-line tools bundles several command-line applications and scripts to manipulate event files.
 
 # install
 
@@ -8,12 +8,12 @@ Utilities bundles several command-line applications and scripts to manipulate ev
 
 To download Utilities, run the command:
 ```sh
-git clone --recursive https://github.com/neuromorphic-paris/utilities.git
+git clone --recursive https://github.com/neuromorphic-paris/command_line_tools.git
 ```
 
 ## bindings
 
-The bindings provided by utilities are tools to read and write Event Stream files from python and Matlab.
+The bindings provided by command-line tools are modules to read and write Event Stream files from python and Matlab.
 
 ### python
 
@@ -125,7 +125,7 @@ The objects associated with the key `bytes` must be byte strings (as an example,
 
 ## applications
 
-The applications provided by utilities are c++ programs operating on Event Stream files.
+The applications provided by command-line tools are c++ programs operating on Event Stream files.
 
 ### dependencies
 
@@ -159,7 +159,7 @@ copy "%userprofile%\Downloads\premake-4.4-beta5-windows\premake4.exe" "%userprof
 
 ### compilation
 
-Run the following commands from the *utilities* directory to compile the applications:
+Run the following commands from the *command_line_tools* directory to compile the applications:
 ```
 premake4 gmake
 cd build
@@ -243,7 +243,7 @@ brew install clang-format # formatting tool
 
 ## test
 
-To test the library, run from the *utilities* directory:
+To test the library, run from the *command_line_tools* directory:
 ```sh
 premake4 gmake
 cd build
@@ -255,7 +255,7 @@ __Windows__ users must run `premake4 vs2010` instead, and open the generated sol
 
 You can then run sequentially the executables located in the *release* directory.
 
-After changing the code, format the source files by running from the *utilities* directory:
+After changing the code, format the source files by running from the *command_line_tools* directory:
 ```sh
 for file in source/*.hpp; do clang-format -i $file; done;
 for file in source/*.cpp; do clang-format -i $file; done;
