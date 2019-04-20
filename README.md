@@ -57,8 +57,8 @@ After installing the bindings, you can import the `eventstream` library system-w
 ```py
 import eventstream
 
-events = eventstream.read('/path/to/input.es')
-eventstream.write(events, '/path/to/output.es')
+stream = eventstream.read('/path/to/input.es')
+eventstream.write(stream, '/path/to/output.es')
 ```
 The `stream` object returned by `read` and expected by `write` is a python dictionary, with one of the following set of fields (depending on the event type):
 ```py
@@ -125,7 +125,7 @@ The objects associated with the key `bytes` must be byte strings (as an example,
 
 ## applications
 
-The applications provided by command-line tools are c++ programs operating on Event Stream files.
+The applications provided by command-line tools are C++ programs operating on Event Stream files.
 
 ### dependencies
 
