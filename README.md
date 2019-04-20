@@ -38,17 +38,17 @@ pip3 install numpy
 
 ##### Windows
 
-Download and install [python](https://www.python.org). Then, open a terminal and run:
+Download and install [python](https://www.python.org). You may need to add the installed directory to your path manually. Then, open a command prompt and run:
 ```sh
 pip3 install numpy
 ```
 
 #### installation
 
-Open a terminal and run:
+Open a terminal (command prompt on Windows) and run:
 ```sh
 cd bindings/python
-python3 setup.py install
+python3 setup.py install # on Windows, run `python setup.py install` instead
 ```
 
 #### documentation
