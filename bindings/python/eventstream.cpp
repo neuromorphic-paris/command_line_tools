@@ -189,24 +189,6 @@ static PyObject* read(PyObject* self, PyObject* args) {
     return stream;
 }
 
-/*
-/// get_events loads the events key from a dict.
-static PyArrayObject* get_events(PyObject* dict, const std::string& key, int32_t type, const std::string& type_name) {
-    auto object = PyDict_GetItem(dict, PyUnicode_FromString(key.c_str()));
-    if (!object) {
-        throw std::runtime_error(std::string("the dict must have a '") + key + "' key");
-    }
-    if (!PyArray_Check(object) || PyArray_TYPE(reinterpret_cast<PyArrayObject*>(object)) != type) {
-        throw std::runtime_error(std::string("'") + key + "' must be " + type_name + " numpy array");
-    }
-    auto array = reinterpret_cast<PyArrayObject*>(object);
-    if (PyArray_NDIM(array) != 1) {
-        throw std::runtime_error(std::string("'") + key + "' must have a single dimension");
-    }
-    return array;
-}
-*/
-
 /// get_width_and_height loads the width and height keys from a dict.
 static std::pair<uint16_t, uint16_t> get_width_and_height(PyObject* dict) {
     std::pair<uint16_t, uint16_t> width_and_height;
