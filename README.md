@@ -1,6 +1,6 @@
 ![banner](banner.png)
 
-Command-line tools bundles several command-line applications and scripts to manipulate event files.
+Command-line tools bundles command-line applications to manipulate event files.
 
 # install
 
@@ -11,132 +11,16 @@ To download Utilities, run the command:
 git clone --recursive https://github.com/neuromorphic-paris/command_line_tools.git
 ```
 
-## bindings
+## dependencies
 
-The bindings provided by command-line tools are modules to read and write Event Stream files from python and Matlab.
-
-### python
-
-#### dependencies
-
-##### Debian / Ubuntu
-
-Open a terminal and run:
-```sh
-sudo apt install python3
-sudo apt install python3-pip
-pip3 install numpy
-```
-
-##### macOS
-
-Open a terminal and run:
-```sh
-brew install python3
-pip3 install numpy
-```
-
-##### Windows
-
-Download and install [python](https://www.python.org). You may need to add the installed directory to your path manually. Then, open a command prompt and run:
-```sh
-pip3 install numpy
-```
-
-#### installation
-
-Open a terminal (command prompt on Windows) and run:
-```sh
-cd bindings/python
-python3 setup.py install # on Windows, run `python setup.py install` instead
-```
-
-#### documentation
-
-After installing the bindings, you can import the `eventstream` library system-wide. It provides the functions `read` and `write`:
-```py
-import eventstream
-
-stream = eventstream.read('/path/to/input.es')
-eventstream.write(stream, '/path/to/output.es')
-```
-The `stream` object returned by `read` and expected by `write` is a python dictionary, with one of the following set of fields (depending on the event type):
-```py
-{
-    'type': 'generic',
-    'events': numpy.array(
-        [...],
-        dtype=dtype([('t', '<u8'), ('bytes', 'O')]),
-}
-```
-The objects associated with the key `bytes` must be byte strings (as an example, `b'abc'`).
-
-```py
-{
-    'type': 'dvs',
-    'width': 320,
-    'height': 240,
-    'events': numpy.array(
-        [...],
-        dtype=dtype([
-            ('t', '<u8'),
-            ('x', '<u2'),
-            ('y', '<u2'),
-            ('is_increase', '?'),
-        ])
-    ),
-}
-```
-```py
-{
-    'type': 'atis',
-    'width': 320,
-    'height': 240,
-    'events': numpy.array(
-        [...],
-        dtype=dtype([
-            ('t', '<u8'),
-            ('x', '<u2'),
-            ('y', '<u2'),
-            ('is_threshold_crossing', '?'),
-            ('polarity', '?'),
-        ])
-    ),
-}
-```
-```py
-{
-    'type': 'color',
-    'width': 320,
-    'height': 240,
-    'events': numpy.array(
-        [...],
-        dtype=dtype([
-            ('t', '<u8'),
-            ('x', '<u2'),
-            ('y', '<u2'),
-            ('r', 'u1'),
-            ('g', 'u1'),
-            ('b', 'u1'),
-        ])
-    ),
-}
-```
-
-## applications
-
-The applications provided by command-line tools are C++ programs operating on Event Stream files.
-
-### dependencies
-
-#### Debian / Ubuntu
+### Debian / Ubuntu
 
 Open a terminal and run:
 ```sh
 sudo apt install premake4 # cross-platform build configuration
 ```
 
-#### macOS
+### macOS
 
 Open a terminal and run:
 ```sh
@@ -147,7 +31,7 @@ If the command is not found, you need to install Homebrew first with the command
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-#### Windows
+### Windows
 
 Download and install:
 - [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/). Select at least __Desktop development with C++__ when asked.
@@ -157,7 +41,7 @@ Download and install:
 copy "%userprofile%\Downloads\premake-4.4-beta5-windows\premake4.exe" "%userprofile%\AppData\Local\Microsoft\WindowsApps"
 ```
 
-### compilation
+## compilation
 
 Run the following commands from the *command_line_tools* directory to compile the applications:
 ```
@@ -171,9 +55,9 @@ __Windows__ users must run `premake4 vs2010` instead, and open the generated sol
 
 The command-line applications are located in the *release* directory.
 
-### documentation
+## documentation
 
-#### cut
+### cut
 
 cut generates a new Event Stream file with only events from the given time range.
 ```
@@ -182,7 +66,7 @@ cut generates a new Event Stream file with only events from the given time range
 Available options:
   - `-h`, `--help` shows the help message
 
-#### dat_to_es
+### dat_to_es
 
 dat_to_es converts a TD file (and an optional APS file) to an Event Stream file:
 ```
@@ -192,7 +76,7 @@ If the string `none` is used for the td (respectively, aps) file, the Event Stre
 Available options:
   - `-h`, `--help` shows the help message
 
-#### es_to_csv
+### es_to_csv
 
 es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and Matlab):
 ```
@@ -201,7 +85,7 @@ es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and
 Available options:
   - `-h`, `--help` shows the help message
 
-#### rainmaker
+### rainmaker
 
 rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file:
 ```
@@ -214,7 +98,7 @@ Available options:
   - `-f [duration]`, `--frametime [duration]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
   - `-h`, `--help` shows the help message
 
-#### statistics
+### statistics
 
 statistics retrieves the event stream's properties and outputs them in JSON format:
 ```

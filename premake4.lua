@@ -27,7 +27,7 @@ solution 'utilities'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/dat_to_es.cpp'}
+        files {'source/dat.hpp', 'source/dat_to_es.cpp'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}

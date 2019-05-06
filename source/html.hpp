@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace html {
-
     /// bytes_to_encoded_characters converts bytes to a URL-encoded string.
     /// It is equivalent to JavaScript's btoa function.
     inline std::string bytes_to_encoded_characters(const std::vector<uint8_t>& bytes) {
