@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../third_party/sepia/source/sepia.hpp"
+#include <algorithm>
 
 namespace dat {
     /// header bundles a .dat file header's information.
