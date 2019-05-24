@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
             if (command.arguments[0] == command.arguments[1]) {
                 throw std::runtime_error("The td and aps inputs must be different files, and cannot be both none");
             }
-            if (command.arguments[0].find("td") == std::string::npos) {
+            if (command.arguments[0] != "none" && command.arguments[0].find("td") == std::string::npos) {
                 std::cout << "The file " << command.arguments[0]
                           << " does not have 'td' in its name. Do you want to continue anyway? (Y/n)" << '\n';
                 std::string answer;
@@ -39,16 +39,16 @@ int main(int argc, char* argv[]) {
                 throw std::runtime_error("none cannot be used for both the td file and aps file");
             }
 
-            if (command.arguments[0] == "none") {
-                auto stream = sepia::filename_to_ifstream(command.arguments[1]);
+            if (command.arguments[1] == "none") {
+                auto stream = sepia::filename_to_ifstream(command.arguments[0]);
                 const auto header = dat::read_header(*stream);
                 dat::td_observable(
                     *stream,
                     header,
                     sepia::write<sepia::type::dvs>(
                         sepia::filename_to_ofstream(command.arguments[2]), header.width, header.height));
-            } else if (command.arguments[1] == "none") {
-                auto stream = sepia::filename_to_ifstream(command.arguments[0]);
+            } else if (command.arguments[0] == "none") {
+                auto stream = sepia::filename_to_ifstream(command.arguments[1]);
                 const auto header = dat::read_header(*stream);
                 dat::aps_observable(
                     *stream,
