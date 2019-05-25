@@ -148,8 +148,8 @@ namespace dat {
         std::istream& aps_stream,
         header stream_header,
         HandleEvent handle_event) {
-        sepia::dvs_event td_event;
-        sepia::dvs_event aps_event;
+        sepia::dvs_event td_event = {};
+        sepia::dvs_event aps_event = {};
         uint64_t previous_t = 0;
         for (;;) {
             std::array<uint8_t, 8> bytes;
