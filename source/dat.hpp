@@ -73,6 +73,9 @@ namespace dat {
         if (stream_header.version >= 2 && stream_header.width > 0 && stream_header.height > 0) {
             return stream_header;
         }
+        else if(stream_header.version >= 2){
+            return {stream_header.version, 304, 240};
+        }
         return {1, 304, 240};
     }
 
