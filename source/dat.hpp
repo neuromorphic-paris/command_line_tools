@@ -73,7 +73,7 @@ namespace dat {
         if (stream_header.version >= 2 && stream_header.width > 0 && stream_header.height > 0) {
             return stream_header;
         }
-        return {1, 304, 240};
+        return {stream_header.version, 304, 240};
     }
 
     /// bytes_to_dvs_event converts raw bytes to a polarized event.
