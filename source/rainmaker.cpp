@@ -150,15 +150,6 @@ int main(int argc, char* argv[]) {
                             delta_ts.begin(),
                             [](exposure_measurement exposure_measurement) { return exposure_measurement.delta_t; });
 
-                        // @DEBUG {
-                        {
-                            std::ofstream debug("/Users/Alex/idv/libraries/utilities/build/debug/delta_ts.log");
-                            for (auto delta_t : delta_ts) {
-                                debug << delta_t << "\n";
-                            }
-                        }
-                        // }
-
                         delta_ts.reserve(delta_ts.size() + delta_t_base_frame.size());
                         for (auto delta_t : delta_t_base_frame) {
                             if (delta_t > 0 && delta_t < std::numeric_limits<uint64_t>::max()) {
