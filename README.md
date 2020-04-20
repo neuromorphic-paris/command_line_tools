@@ -85,6 +85,27 @@ es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and
 Available options:
   - `-h`, `--help` shows the help message
 
+### es_to_ppms
+
+es_to_ppms converts an Event Stream file to Netpbm (https://en.wikipedia.org/wiki/Netpbm) frames. The output directory must be created first:
+```
+./es_to_ppms [options] /path/to/input.es /path/to/output/directory
+```
+Available options:
+  - `-d decay, --decay decay` sets the timesurface decay (in microseconds, defaults to `100000`)
+  - `-f frametime, --frametime frametime` sets the time between two frames (in microseconds, defaults to `10000`)
+  - `-h`, `--help` shows the help message
+
+You can convert the generated ppm frames into a video using [FFmpeg](https://www.ffmpeg.org):
+```
+ffmpeg -framerate 100 -pattern_type glob -i '/path/to/output/directory/*.ppm' -c:v libx265 -pix_fmt yuv444p /path/to/output.mp4
+```
+
+You can also use x265 to perform lossless encoding:
+```
+ffmpeg -framerate 100 -pattern_type glob -i '/path/to/output/directory/*.ppm' -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
+```
+
 ### rainmaker
 
 rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file:
@@ -141,10 +162,7 @@ You can then run sequentially the executables located in the *release* directory
 
 After changing the code, format the source files by running from the *command_line_tools* directory:
 ```sh
-for file in source/*.hpp; do clang-format -i $file; done;
-for file in source/*.cpp; do clang-format -i $file; done;
-for file in bindings/matlab/*.cpp; do clang-format -i $file; done;
-for file in bindings/python/*.cpp; do clang-format -i $file; done;
+clang-format -i source/*.hpp source/*.cpp
 ```
 
 __Windows__ users must run *Edit* > *Advanced* > *Format Document* from the Visual Studio menu instead.
