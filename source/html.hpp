@@ -103,9 +103,9 @@ namespace html {
         public:
         text_node(const std::string& content, node* parent_node) : node(parent_node), content(content) {}
         text_node(const text_node&) = delete;
-        text_node(text_node&&) = default;
+        text_node(text_node&&) = delete;
         text_node& operator=(const text_node&) = delete;
-        text_node& operator=(text_node&&) = default;
+        text_node& operator=(text_node&&) = delete;
         virtual ~text_node() {}
 
         /// content contains the node's text.
@@ -117,9 +117,9 @@ namespace html {
         public:
         variable_node(const std::string& name, node* parent_node) : node(parent_node), name(name) {}
         variable_node(const variable_node&) = delete;
-        variable_node(variable_node&&) = default;
+        variable_node(variable_node&&) = delete;
         variable_node& operator=(const variable_node&) = delete;
-        variable_node& operator=(variable_node&&) = default;
+        variable_node& operator=(variable_node&&) = delete;
         virtual ~variable_node() {}
 
         /// name is the variable's name.
@@ -136,9 +136,9 @@ namespace html {
             is_inline(is_inline),
             in_else_block(false) {}
         conditional_node(const conditional_node&) = delete;
-        conditional_node(conditional_node&&) = default;
+        conditional_node(conditional_node&&) = delete;
         conditional_node& operator=(const conditional_node&) = delete;
-        conditional_node& operator=(conditional_node&&) = default;
+        conditional_node& operator=(conditional_node&&) = delete;
         virtual ~conditional_node() {}
 
         /// name is the variable's name.
