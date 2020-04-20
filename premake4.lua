@@ -89,6 +89,28 @@ solution 'utilities'
             linkoptions {'-std=c++11'}
         configuration 'windows'
             files {'.clang-format'}
+    project 'es_to_ppms'
+        kind 'ConsoleApp'
+        language 'C++'
+        location 'build'
+        files {'source/es_to_ppms.cpp'}
+        configuration 'release'
+            targetdir 'build/release'
+            defines {'NDEBUG'}
+            flags {'OptimizeSpeed'}
+        configuration 'debug'
+            targetdir 'build/debug'
+            defines {'DEBUG'}
+            flags {'Symbols'}
+        configuration 'linux'
+            links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'rainmaker'
         kind 'ConsoleApp'
         language 'C++'
