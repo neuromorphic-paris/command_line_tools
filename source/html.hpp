@@ -179,7 +179,7 @@ namespace html {
     };
 
     /// state holds the parser character state machine.
-    enum class state {
+    enum class state_c {
         content,
         opening_brace,
         expression,
@@ -209,18 +209,18 @@ namespace html {
         std::istringstream stream(html_template);
         std::string line;
         while (std::getline(stream, line)) {
-            auto state = state::content;
+            auto state = state_c::content;
             std::vector<part> parts;
             if (!previous_part.content.empty() && previous_part.is_expression) {
-                state = state::expression;
+                state = state_c::expression;
                 parts.push_back(previous_part);
                 previous_part.content.clear();
             }
             for (auto character_iterator = line.cbegin(); character_iterator != line.cend(); ++character_iterator) {
                 switch (state) {
-                    case state::content:
+                    case state_c::content:
                         if (*character_iterator == '{') {
-                            state = state::opening_brace;
+                            state = state_c::opening_brace;
                         } else {
                             if (parts.empty() || parts.back().is_expression) {
                                 parts.push_back({"", false, false});
@@ -228,25 +228,25 @@ namespace html {
                             parts.back().content.push_back(*character_iterator);
                         }
                         break;
-                    case state::opening_brace:
+                    case state_c::opening_brace:
                         if (*character_iterator == '%') {
                             if (!parts.empty()) {
                                 parts.back().is_complete = true;
                             }
                             parts.push_back(part{"", true, false});
-                            state = state::expression;
+                            state = state_c::expression;
                         } else {
                             if (parts.empty() || parts.back().is_expression) {
                                 parts.push_back({"", false, false});
                             }
                             parts.back().content.push_back('{');
                             parts.back().content.push_back(*character_iterator);
-                            state = state::content;
+                            state = state_c::content;
                         }
                         break;
-                    case state::expression:
+                    case state_c::expression:
                         if (*character_iterator == '%') {
-                            state = state::closing_percent;
+                            state = state_c::closing_percent;
                         } else if (
                             std::isspace(*character_iterator) || std::isalnum(*character_iterator)
                             || *character_iterator == '_') {
@@ -255,10 +255,10 @@ namespace html {
                             parse_error("expected a word character or a percent sign");
                         }
                         break;
-                    case state::closing_percent:
+                    case state_c::closing_percent:
                         if (*character_iterator == '}') {
                             parts.back().is_complete = true;
-                            state = state::content;
+                            state = state_c::content;
                         } else {
                             parse_error("expected a closing brace");
                         }
@@ -267,23 +267,23 @@ namespace html {
                 ++character_count;
             }
             switch (state) {
-                case state::content:
+                case state_c::content:
                     if (parts.empty() || parts.back().is_expression) {
                         parts.push_back({"", false, false});
                     }
                     parts.back().content.push_back('\n');
                     break;
-                case state::opening_brace:
+                case state_c::opening_brace:
                     if (parts.empty() || parts.back().is_expression) {
                         parts.push_back({"", false, false});
                     }
                     parts.back().content.push_back('{');
                     parts.back().content.push_back('\n');
                     break;
-                case state::expression:
+                case state_c::expression:
                     parts.back().content.push_back('\n');
                     break;
-                case state::closing_percent:
+                case state_c::closing_percent:
                     parse_error("expected a closing brace");
                     break;
             }
