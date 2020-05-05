@@ -118,16 +118,18 @@ int main(int argc, char* argv[]) {
                         sepia::filename_to_ifstream(command.arguments[0]),
                         sepia::make_split<sepia::type::atis>(
                             [&](sepia::dvs_event dvs_event) {
-                              if (dvs_event.t >= end_t) {
-                                  throw sepia::end_of_file();
-                              }
-                              if (dvs_event.t >= begin_t) {
-                                  if (dvs_event.is_increase) {
-                                      dvs_color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0xbb, 0xbb, 0xbb});
-                                  } else {
-                                      dvs_color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0x33, 0x4d, 0x5c});
-                                  }
-                              }
+                                if (dvs_event.t >= end_t) {
+                                    throw sepia::end_of_file();
+                                }
+                                if (dvs_event.t >= begin_t) {
+                                    if (dvs_event.is_increase) {
+                                        dvs_color_events.push_back(
+                                            {dvs_event.t, dvs_event.x, dvs_event.y, 0xbb, 0xbb, 0xbb});
+                                    } else {
+                                        dvs_color_events.push_back(
+                                            {dvs_event.t, dvs_event.x, dvs_event.y, 0x33, 0x4d, 0x5c});
+                                    }
+                                }
                             },
                             tarsier::make_stitch<sepia::threshold_crossing, exposure_measurement>(
                                 header.width,
@@ -288,7 +290,7 @@ int main(int argc, char* argv[]) {
                 std::stringstream event_stream;
                 sepia::write_to_reference<sepia::type::color> write(event_stream, header.width, header.height);
                 if (header.event_stream_type == sepia::type::atis) {
-                  color_events = dvs_color_events;
+                    color_events = dvs_color_events;
                 }
                 for (auto color_event : color_events) {
                     write(color_event);
