@@ -12,25 +12,24 @@ void crop(sepia::header header, const pontella::command& command) {
     const uint16_t top = bottom + height;
 
     if (command.arguments[6] == "true") {
-    sepia::write<event_stream_type> write(
-        sepia::filename_to_ofstream(command.arguments[1]), header.width, header.height);
-    sepia::join_observable<event_stream_type>(
-        sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
-            if (event.x >= left && event.x < right && event.y >= bottom && event.y < top) {
-                write(event);
-            }
-        });
+        sepia::write<event_stream_type> write(
+            sepia::filename_to_ofstream(command.arguments[1]), header.width, header.height);
+        sepia::join_observable<event_stream_type>(
+            sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
+                if (event.x >= left && event.x < right && event.y >= bottom && event.y < top) {
+                    write(event);
+                }
+            });
     } else if (command.arguments[6] == "false") {
-    sepia::write<event_stream_type> write(
-        sepia::filename_to_ofstream(command.arguments[1]), width, height);
-    sepia::join_observable<event_stream_type>(
-        sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
-            if (event.x >= left && event.x < right && event.y >= bottom && event.y < top) {
-                event.x -= left;
-                event.y -= bottom;
-                write(event);
-            }
-        });
+        sepia::write<event_stream_type> write(sepia::filename_to_ofstream(command.arguments[1]), width, height);
+        sepia::join_observable<event_stream_type>(
+            sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
+                if (event.x >= left && event.x < right && event.y >= bottom && event.y < top) {
+                    event.x -= left;
+                    event.y -= bottom;
+                    write(event);
+                }
+            });
     } else {
         throw std::runtime_error("Please specify if keeps offset (true) or not (false)");
     }

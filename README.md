@@ -92,8 +92,16 @@ es_to_ppms converts an Event Stream file to Netpbm (https://en.wikipedia.org/wik
 ./es_to_ppms [options] /path/to/input.es /path/to/output/directory
 ```
 Available options:
-  - `-d decay, --decay decay` sets the timesurface decay (in microseconds, defaults to `100000`)
-  - `-f frametime, --frametime frametime` sets the time between two frames (in microseconds, defaults to `10000`)
+  - `-f frametime`, `--frametime frametime` sets the time between two frames (in microseconds, defaults to `10000`)
+  - `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
+  - `-p parameter`, `--parameter parameter` sets the function parameter (in microseconds, defaults to `100000`)
+    - if `style` is `exponential`, the decay is set to `parameter`
+    - if `style` is `linear`, the decay is set to `parameter / 2`
+    - if `style` is `window`, the time window is set to `parameter`
+
+  - `-a color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#ffffff`)
+  - `-b color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#000000`)
+  - `-c color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
   - `-h`, `--help` shows the help message
 
 You can convert the generated ppm frames into a video using [FFmpeg](https://www.ffmpeg.org):

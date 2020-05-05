@@ -3,6 +3,8 @@
 #include <iomanip>
 #include <sstream>
 
+#include <iostream>
+
 template <sepia::type type>
 std::pair<uint64_t, uint64_t> t_range(std::unique_ptr<std::istream> stream) {
     uint64_t first_t = std::numeric_limits<uint64_t>::max();
@@ -16,36 +18,81 @@ std::pair<uint64_t, uint64_t> t_range(std::unique_ptr<std::istream> stream) {
     return {first_t, last_t};
 }
 
+enum class style { exponential, linear, window };
+
+struct color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    color(uint8_t default_r, uint8_t default_g, uint8_t default_b) : r(default_r), g(default_g), b(default_b) {}
+    color(const std::string& hexadecimal_string) {
+        if (hexadecimal_string.size() != 7 || hexadecimal_string.front() != '#'
+            || std::any_of(std::next(hexadecimal_string.begin()), hexadecimal_string.end(), [](char character) {
+                   return !std::isxdigit(character);
+               })) {
+            throw std::runtime_error("color must be formatted as #hhhhhh, where h is an hexadecimal digit");
+        }
+        r = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(1, 2), nullptr, 16));
+        g = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(3, 2), nullptr, 16));
+        b = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(5, 2), nullptr, 16));
+    }
+    template <uint8_t channel>
+    uint8_t mix(color other, float lambda) = delete;
+    template <>
+    uint8_t mix<0>(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * r + lambda * other.r);
+    }
+    template <>
+    uint8_t mix<1>(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * g + lambda * other.g);
+    }
+    template <>
+    uint8_t mix<2>(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * b + lambda * other.b);
+    }
+};
+
 int main(int argc, char* argv[]) {
     return pontella::main(
         {"es_to_ppms converts an Event Stream file to Netpbm (https://en.wikipedia.org/wiki/Netpbm) frames.",
-        "The output directory must be created first",
+         "The output directory must be created first",
          "Syntax: ./es_to_ppms [options] /path/to/input.es /path/to/output/directory",
          "Available options:",
-         "    -d decay, --decay decay                sets the timesurface decay (in microseconds)",
-         "                                               defaults to 100000",
          "    -f frametime, --frametime frametime    sets the time between two frames (in microseconds)",
          "                                               defaults to 10000",
+         "    -s style, --style style                selects the decay function",
+         "                                               one of exponential (default), linear, window",
+         "    -p parameter, --parameter parameter    sets the function parameter (in microseconds)",
+         "                                               defaults to 100000",
+         "                                               if style is `exponential`, the decay is set to parameter",
+         "                                               if style is `linear`, the decay is set to parameter / 2",
+         "                                               if style is `window`, the time window is set to parameter",
+         "    -a color, --oncolor color              sets the color for ON events",
+         "                                               color must be formatted as #hhhhhh,",
+         "                                               where h is an hexadecimal digit",
+         "                                               defaults to #ffffff",
+         "    -b color, --offcolor color             sets the color for OFF events",
+         "                                               color must be formatted as #hhhhhh,",
+         "                                               where h is an hexadecimal digit",
+         "                                               defaults to #000000",
+         "    -c color, --idlecolor color            sets the background color",
+         "                                               color must be formatted as #hhhhhh,",
+         "                                               where h is an hexadecimal digit",
+         "                                               defaults to #808080",
          "    -h, --help                 shows this help message"},
         argc,
         argv,
         2,
         {
-            {"decay", {"d"}},
+            {"style", {"s"}},
+            {"parameter", {"p"}},
+            {"oncolor", {"a"}},
+            {"offcolor", {"b"}},
+            {"idlecolor", {"c"}},
             {"frametime", {"f"}},
         },
         {},
         [](pontella::command command) {
-            uint64_t decay = 100000;
-            {
-                const auto name_and_argument = command.options.find("decay");
-                if (name_and_argument != command.options.end()) {
-                    decay = std::stoull(name_and_argument->second);
-                    if (decay == 0) {
-                        throw std::runtime_error("the timesurface decay must be larger than 0");
-                    }
-                }
-            }
             uint64_t frametime = 10000;
             {
                 const auto name_and_argument = command.options.find("frametime");
@@ -53,6 +100,50 @@ int main(int argc, char* argv[]) {
                     frametime = std::stoull(name_and_argument->second);
                     if (frametime == 0) {
                         throw std::runtime_error("the frametime must be larger than 0");
+                    }
+                }
+            }
+            color on_color(0xff, 0xff, 0xff);
+            {
+                const auto name_and_argument = command.options.find("oncolor");
+                if (name_and_argument != command.options.end()) {
+                    on_color = color(name_and_argument->second);
+                }
+            }
+            color off_color(0x00, 0x00, 0x00);
+            {
+                const auto name_and_argument = command.options.find("offcolor");
+                if (name_and_argument != command.options.end()) {
+                    off_color = color(name_and_argument->second);
+                }
+            }
+            color idle_color(0x80, 0x80, 0x80);
+            {
+                const auto name_and_argument = command.options.find("idlecolor");
+                if (name_and_argument != command.options.end()) {
+                    idle_color = color(name_and_argument->second);
+                }
+            }
+            auto decay_style = style::exponential;
+            {
+                const auto name_and_argument = command.options.find("style");
+                if (name_and_argument != command.options.end()) {
+                    if (name_and_argument->second == "linear") {
+                        decay_style = style::linear;
+                    } else if (name_and_argument->second == "window") {
+                        decay_style = style::window;
+                    } else if (name_and_argument->second != "exponential") {
+                        throw std::runtime_error("style must be one of {exponential, linear, window}");
+                    }
+                }
+            }
+            uint64_t parameter = 100000;
+            {
+                const auto name_and_argument = command.options.find("parameter");
+                if (name_and_argument != command.options.end()) {
+                    parameter = std::stoull(name_and_argument->second);
+                    if (parameter == 0) {
+                        throw std::runtime_error("the parameter must be larger than 0");
                     }
                 }
             }
@@ -81,11 +172,13 @@ int main(int argc, char* argv[]) {
             {
                 const auto number_of_frames = (range.second - range.first) / frametime;
                 if (number_of_frames == 0) {
-                    throw std::runtime_error("the frametime is too large, or there are not enough events: no frames will be generated");
+                    throw std::runtime_error(
+                        "the frametime is too large, or there are not enough events: no frames will be generated");
                 }
                 name_width = static_cast<uint8_t>(std::log10(number_of_frames - 1)) + 1;
             }
-            std::vector<std::pair<uint64_t, bool>> ts_and_ons(header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+            std::vector<std::pair<uint64_t, bool>> ts_and_ons(
+                header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
             uint64_t frame_index = 0;
             auto generate_ppms = [&](sepia::dvs_event event) {
                 const auto frame_t = std::get<0>(range) + frame_index * frametime;
@@ -94,27 +187,42 @@ int main(int argc, char* argv[]) {
                     for (uint16_t y = 0; y < header.height; ++y) {
                         for (uint16_t x = 0; x < header.width; ++x) {
                             const auto& t_and_on = ts_and_ons[x + y * header.width];
-                            uint8_t value;
+                            float lambda;
                             if (t_and_on.first == std::numeric_limits<uint64_t>::max()) {
-                                value = 127;
+                                lambda = 0.0f;
                             } else {
-                                if (t_and_on.second) {
-                                    value = static_cast<uint8_t>(127 + 128 * std::exp(-static_cast<double>(frame_t - 1 - t_and_on.first) / decay));
-                                } else {
-                                    value = static_cast<uint8_t>(127 - 127 * std::exp(-static_cast<double>(frame_t - 1 - t_and_on.first) / decay));
+                                switch (decay_style) {
+                                    case style::exponential:
+                                        lambda = std::exp(
+                                            -static_cast<float>(frame_t - 1 - t_and_on.first)
+                                            / static_cast<float>(parameter));
+                                        break;
+                                    case style::linear:
+                                        lambda = t_and_on.first + 2 * parameter > frame_t - 1 ?
+                                                     static_cast<float>(t_and_on.first + 2 * parameter - (frame_t - 1))
+                                                         / static_cast<float>(2 * parameter) :
+                                                     0.0f;
+                                        break;
+                                    case style::window:
+                                        lambda = t_and_on.first + parameter > frame_t - 1 ? 1.0f : 0.0f;
+                                        break;
                                 }
                             }
-                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 0] = value;
-                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 1] = value;
-                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 2] = value;
+                            frame[(x + (header.height - 1 - y) * header.width) * 3] =
+                                idle_color.mix<0>(t_and_on.second ? on_color : off_color, lambda);
+                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 1] =
+                                idle_color.mix<1>(t_and_on.second ? on_color : off_color, lambda);
+                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 2] =
+                                idle_color.mix<2>(t_and_on.second ? on_color : off_color, lambda);
                         }
                     }
                     std::stringstream name;
                     name << std::setfill('0') << std::setw(name_width) << frame_index << ".ppm";
                     ++frame_index;
-                    std::ofstream output(sepia::join({command.arguments[1], name.str()}));
+                    const auto filename = sepia::join({command.arguments[1], name.str()});
+                    std::ofstream output(filename);
                     if (!output.good()) {
-                        throw sepia::unwritable_file(name.str());
+                        throw sepia::unwritable_file(filename);
                     }
                     output << "P6\n" << header.width << " " << header.height << "\n255\n";
                     output.write(reinterpret_cast<const char*>(frame.data()), frame.size());
