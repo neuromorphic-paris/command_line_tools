@@ -163,7 +163,9 @@ int main(int argc, char* argv[]) {
                     sepia::join_observable<sepia::type::dvs>(std::move(input), get_range);
                     break;
                 case sepia::type::atis:
-                    sepia::make_split<sepia::type::atis>(get_range, [](sepia::threshold_crossing) {});
+                    sepia::join_observable<sepia::type::atis>(
+                        std::move(input),
+                        sepia::make_split<sepia::type::atis>(get_range, [](sepia::threshold_crossing) {}));
                     break;
                 case sepia::type::color:
                     throw std::runtime_error("unsupported event stream type 'color'");

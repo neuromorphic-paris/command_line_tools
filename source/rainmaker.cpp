@@ -217,12 +217,13 @@ int main(int argc, char* argv[]) {
                         color_events.begin(),
                         [&](exposure_measurement exposure_measurement) -> sepia::color_event {
                             const auto exposure = delta_t_to_exposure(exposure_measurement.delta_t);
-                            return {exposure_measurement.t,
-                                    exposure_measurement.x,
-                                    exposure_measurement.y,
-                                    exposure,
-                                    exposure,
-                                    exposure};
+                            return {
+                                exposure_measurement.t,
+                                exposure_measurement.x,
+                                exposure_measurement.y,
+                                exposure,
+                                exposure,
+                                exposure};
                         });
                     break;
                 }
