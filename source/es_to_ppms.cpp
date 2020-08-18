@@ -36,18 +36,13 @@ struct color {
         g = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(3, 2), nullptr, 16));
         b = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(5, 2), nullptr, 16));
     }
-    template <uint8_t channel>
-    uint8_t mix(color other, float lambda) = delete;
-    template <>
-    uint8_t mix<0>(color other, float lambda) {
+    uint8_t mix_r(color other, float lambda) {
         return static_cast<uint8_t>((1.0f - lambda) * r + lambda * other.r);
     }
-    template <>
-    uint8_t mix<1>(color other, float lambda) {
+    uint8_t mix_g(color other, float lambda) {
         return static_cast<uint8_t>((1.0f - lambda) * g + lambda * other.g);
     }
-    template <>
-    uint8_t mix<2>(color other, float lambda) {
+    uint8_t mix_b(color other, float lambda) {
         return static_cast<uint8_t>((1.0f - lambda) * b + lambda * other.b);
     }
 };
@@ -65,7 +60,7 @@ int main(int argc, char* argv[]) {
          "    -p parameter, --parameter parameter    sets the function parameter (in microseconds)",
          "                                               defaults to 100000",
          "                                               if style is `exponential`, the decay is set to parameter",
-         "                                               if style is `linear`, the decay is set to parameter / 2",
+         "                                               if style is `linear`, the decay is set to parameter * 2",
          "                                               if style is `window`, the time window is set to parameter",
          "    -a color, --oncolor color              sets the color for ON events",
          "                                               color must be formatted as #hhhhhh,",
@@ -211,11 +206,11 @@ int main(int argc, char* argv[]) {
                                 }
                             }
                             frame[(x + (header.height - 1 - y) * header.width) * 3] =
-                                idle_color.mix<0>(t_and_on.second ? on_color : off_color, lambda);
+                                idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
                             frame[(x + (header.height - 1 - y) * header.width) * 3 + 1] =
-                                idle_color.mix<1>(t_and_on.second ? on_color : off_color, lambda);
+                                idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
                             frame[(x + (header.height - 1 - y) * header.width) * 3 + 2] =
-                                idle_color.mix<2>(t_and_on.second ? on_color : off_color, lambda);
+                                idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
                         }
                     }
                     std::stringstream name;
