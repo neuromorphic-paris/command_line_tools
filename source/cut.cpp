@@ -6,12 +6,22 @@ template <sepia::type event_stream_type>
 void cut(sepia::header header, const pontella::command& command) {
     const uint64_t begin = std::stoull(command.arguments[2]);
     const uint64_t end = std::stoull(command.arguments[3]) + begin;
+    auto first = true;
+    uint64_t first_t = 0;
+    const auto normalize = command.flags.find("normalize") != command.flags.end();
     sepia::write<event_stream_type> write(
         sepia::filename_to_ofstream(command.arguments[1]), header.width, header.height);
     sepia::join_observable<event_stream_type>(
         sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
             if (event.t >= begin) {
+                if (first) {
+                    first = false;
+                    first_t = event.t;
+                }
                 if (event.t < end) {
+                    if (normalize) {
+                        event.t -= first_t;
+                    }
                     write(event);
                 } else {
                     throw sepia::end_of_file();
@@ -26,13 +36,14 @@ int main(int argc, char* argv[]) {
             "cut generates a new Event Stream file with only events from the given time range.",
             "Syntax: ./cut [options] /path/to/input.es /path/to/output.es begin duration",
             "Available options:",
-            "    -h, --help    shows this help message",
+            "    -n, --normalize    sets the first generated timestamp to zero",
+            "    -h, --help         shows this help message",
         },
         argc,
         argv,
         4,
         {},
-        {},
+        {{"normalize", {"n"}}},
         [](pontella::command command) {
             if (command.arguments[0] == command.arguments[1]) {
                 throw std::runtime_error("The Event Stream input and output must be different files");
