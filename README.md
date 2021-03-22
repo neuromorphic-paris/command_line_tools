@@ -68,7 +68,7 @@ Available options:
 
 ### dat_to_es
 
-dat_to_es converts a TD file (and an optional APS file) to an Event Stream file:
+dat_to_es converts a TD file (and an optional APS file) to an Event Stream file.
 ```
 ./dat_to_es [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es
 ```
@@ -105,7 +105,7 @@ Available options:
   - `-c color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
   - `-h`, `--help` shows the help message
 
-You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video. You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the original Event Stream dimensions (use `./statistics /path/to/input.es` to read them if needed).
+You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video. You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the original Event Stream dimensions (use `./size /path/to/input.es` to read them if needed).
 ```
 ./es_to_frames [options] /path/to/input.es | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
 ```
@@ -117,7 +117,7 @@ You can also use a lossless encoding format:
 
 ### rainmaker
 
-rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file:
+rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file.
 ```
 ./rainmaker [options] /path/to/input.es /path/to/output.html
 ```
@@ -128,9 +128,18 @@ Available options:
   - `-f [duration]`, `--frametime [duration]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
   - `-h`, `--help` shows the help message
 
+### size
+
+size prints the spatial dimensions of the given Event Stream file.
+```
+./size /path/to/input.es
+```
+Available options:
+  - `-h`, `--help` shows the help message
+
 ### statistics
 
-statistics retrieves the event stream's properties and outputs them in JSON format:
+statistics retrieves the event stream's properties and outputs them in JSON format.
 ```
 ./statistics [options] /path/to/input.es
 ```
