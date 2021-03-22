@@ -49,12 +49,15 @@ struct color {
 
 int main(int argc, char* argv[]) {
     return pontella::main(
-        {"es_to_ppms converts an Event Stream file to Netpbm (https://en.wikipedia.org/wiki/Netpbm) frames.",
-         "The output directory must be created first",
-         "Syntax: ./es_to_ppms [options] /path/to/input.es /path/to/output/directory",
+        {"es_to_frames converts an Event Stream file to video frames",
+         "    Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory",
+         "    Otherwise, the output consists in raw rgb24 frames",
+         "Syntax: ./es_to_ppms [options] /path/to/input.es",
          "Available options:",
+         "    -o directory, --output directory       sets the path to the output directory",
+         "                                               defaults to standard output",
          "    -f frametime, --frametime frametime    sets the time between two frames (in microseconds)",
-         "                                               defaults to 10000",
+         "                                               defaults to 20000",
          "    -s style, --style style                selects the decay function",
          "                                               one of exponential (default), linear, window",
          "    -p parameter, --parameter parameter    sets the function parameter (in microseconds)",
@@ -77,8 +80,9 @@ int main(int argc, char* argv[]) {
          "    -h, --help                 shows this help message"},
         argc,
         argv,
-        2,
+        1,
         {
+            {"output", {"o"}},
             {"style", {"s"}},
             {"parameter", {"p"}},
             {"oncolor", {"a"}},
@@ -88,7 +92,7 @@ int main(int argc, char* argv[]) {
         },
         {},
         [](pontella::command command) {
-            uint64_t frametime = 10000;
+            uint64_t frametime = 20000;
             {
                 const auto name_and_argument = command.options.find("frametime");
                 if (name_and_argument != command.options.end()) {
@@ -140,6 +144,13 @@ int main(int argc, char* argv[]) {
                     if (parameter == 0) {
                         throw std::runtime_error("the parameter must be larger than 0");
                     }
+                }
+            }
+            std::string output_directory;
+            {
+                const auto name_and_argument = command.options.find("output");
+                if (name_and_argument != command.options.end()) {
+                    output_directory = name_and_argument->second;
                 }
             }
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
@@ -213,16 +224,21 @@ int main(int argc, char* argv[]) {
                                 idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
                         }
                     }
-                    std::stringstream name;
-                    name << std::setfill('0') << std::setw(name_width) << frame_index << ".ppm";
-                    ++frame_index;
-                    const auto filename = sepia::join({command.arguments[1], name.str()});
-                    std::ofstream output(filename);
-                    if (!output.good()) {
-                        throw sepia::unwritable_file(filename);
+                    if (output_directory.empty()) {
+                        std::cout.write(reinterpret_cast<const char*>(frame.data()), frame.size());
+                    } else {
+                        std::stringstream name;
+                        name << std::setfill('0') << std::setw(name_width) << frame_index << ".ppm";
+
+                        const auto filename = sepia::join({output_directory, name.str()});
+                        std::ofstream output(filename);
+                        if (!output.good()) {
+                            throw sepia::unwritable_file(filename);
+                        }
+                        output << "P6\n" << header.width << " " << header.height << "\n255\n";
+                        output.write(reinterpret_cast<const char*>(frame.data()), frame.size());
                     }
-                    output << "P6\n" << header.width << " " << header.height << "\n255\n";
-                    output.write(reinterpret_cast<const char*>(frame.data()), frame.size());
+                    ++frame_index;
                 }
                 ts_and_ons[event.x + event.y * header.width].first = event.t;
                 ts_and_ons[event.x + event.y * header.width].second = event.is_increase;

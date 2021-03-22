@@ -89,11 +89,11 @@ solution 'utilities'
             linkoptions {'-std=c++11'}
         configuration 'windows'
             files {'.clang-format'}
-    project 'es_to_ppms'
+    project 'es_to_frames'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/es_to_ppms.cpp'}
+        files {'source/es_to_frames.cpp'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}

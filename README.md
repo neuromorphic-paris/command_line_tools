@@ -85,14 +85,15 @@ es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and
 Available options:
   - `-h`, `--help` shows the help message
 
-### es_to_ppms
+### es_to_frames
 
-es_to_ppms converts an Event Stream file to Netpbm (https://en.wikipedia.org/wiki/Netpbm) frames. The output directory must be created first:
+es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists in raw rgb24 frames.
 ```
-./es_to_ppms [options] /path/to/input.es /path/to/output/directory
+./es_to_frames [options] /path/to/input.es
 ```
 Available options:
-  - `-f frametime`, `--frametime frametime` sets the time between two frames (in microseconds, defaults to `10000`)
+  - `-o directory`, `--output directory` sets the path to the output directory (defaults to standard output)
+  - `-f frametime`, `--frametime frametime` sets the time between two frames (in microseconds, defaults to `20000`)
   - `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
   - `-p parameter`, `--parameter parameter` sets the function parameter (in microseconds, defaults to `100000`)
     - if `style` is `exponential`, the decay is set to `parameter`
@@ -104,14 +105,14 @@ Available options:
   - `-c color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
   - `-h`, `--help` shows the help message
 
-You can convert the generated ppm frames into a video using [FFmpeg](https://www.ffmpeg.org):
+You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video. You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the original Event Stream dimensions (use `./statistics /path/to/input.es` to read them if needed).
 ```
-ffmpeg -framerate 100 -pattern_type glob -i '/path/to/output/directory/*.ppm' -c:v libx265 -pix_fmt yuv444p /path/to/output.mp4
+./es_to_frames [options] /path/to/input.es | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
 ```
 
-You can also use x265 to perform lossless encoding:
+You can also use a lossless encoding format:
 ```
-ffmpeg -framerate 100 -pattern_type glob -i '/path/to/output/directory/*.ppm' -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
+./es_to_frames [options] /path/to/input.es | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
 ```
 
 ### rainmaker
