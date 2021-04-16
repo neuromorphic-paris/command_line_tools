@@ -52,8 +52,10 @@ int main(int argc, char* argv[]) {
         {"es_to_frames converts an Event Stream file to video frames",
          "    Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory",
          "    Otherwise, the output consists in raw rgb24 frames",
-         "Syntax: ./es_to_ppms [options] /path/to/input.es",
+         "Syntax: ./es_to_ppms [options]",
          "Available options:",
+         "    -i file, --input file                  sets the path to the input .es file",
+         "                                               defaults to standard input",
          "    -o directory, --output directory       sets the path to the output directory",
          "                                               defaults to standard output",
          "    -f frametime, --frametime frametime    sets the time between two frames (in microseconds)",
@@ -77,18 +79,23 @@ int main(int argc, char* argv[]) {
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #808080",
+         "    -d digits, --digits digits             sets the number of digits in output filenames",
+         "                                               ignored if the output is not a directory",
+         "                                               defaults to 6",
          "    -h, --help                 shows this help message"},
         argc,
         argv,
-        1,
+        0,
         {
+            {"input", {"i"}},
             {"output", {"o"}},
+            {"frametime", {"f"}},
             {"style", {"s"}},
             {"parameter", {"p"}},
             {"oncolor", {"a"}},
             {"offcolor", {"b"}},
             {"idlecolor", {"c"}},
-            {"frametime", {"f"}},
+            {"digits", {"d"}},
         },
         {},
         [](pontella::command command) {
@@ -153,43 +160,36 @@ int main(int argc, char* argv[]) {
                     output_directory = name_and_argument->second;
                 }
             }
-            const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
-            auto input = sepia::filename_to_ifstream(command.arguments[0]);
-            std::pair<uint64_t, uint64_t> range{std::numeric_limits<uint64_t>::max(), 0};
-            auto get_range = [&](sepia::dvs_event event) {
-                if (std::get<0>(range) == std::numeric_limits<uint64_t>::max()) {
-                    std::get<0>(range) = event.t;
-                }
-                std::get<1>(range) = event.t;
-            };
-            switch (header.event_stream_type) {
-                case sepia::type::generic:
-                    throw std::runtime_error("unsupported event stream type 'generic'");
-                case sepia::type::dvs:
-                    sepia::join_observable<sepia::type::dvs>(std::move(input), get_range);
-                    break;
-                case sepia::type::atis:
-                    sepia::join_observable<sepia::type::atis>(
-                        std::move(input),
-                        sepia::make_split<sepia::type::atis>(get_range, [](sepia::threshold_crossing) {}));
-                    break;
-                case sepia::type::color:
-                    throw std::runtime_error("unsupported event stream type 'color'");
-            }
-            uint8_t name_width;
+            std::unique_ptr<std::istream> input;
             {
-                const auto number_of_frames = (range.second - range.first) / frametime;
-                if (number_of_frames == 0) {
-                    throw std::runtime_error(
-                        "the frametime is too large, or there are not enough events: no frames will be generated");
+                const auto name_and_argument = command.options.find("input");
+                if (name_and_argument == command.options.end()) {
+                    input = sepia::make_unique<std::istream>(std::cin.rdbuf());
+                } else {
+                    input = sepia::filename_to_ifstream(name_and_argument->second);
                 }
-                name_width = static_cast<uint8_t>(std::log10(number_of_frames - 1)) + 1;
+            }
+            const auto header = sepia::read_header(*input);
+            uint8_t digits = 6;
+            {
+                const auto name_and_argument = command.options.find("digits");
+                if (name_and_argument != command.options.end()) {
+                    const auto digits_candidate = std::stoull(name_and_argument->second);
+                    if (digits_candidate == 0 || digits_candidate > 255) {
+                        throw std::runtime_error("digits must be in the range [1, 255]");
+                    }
+                    digits = static_cast<uint8_t>(digits_candidate);
+                }
             }
             std::vector<std::pair<uint64_t, bool>> ts_and_ons(
                 header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
             uint64_t frame_index = 0;
+            auto first_t = std::numeric_limits<uint64_t>::max();
             auto generate_ppms = [&](sepia::dvs_event event) {
-                const auto frame_t = std::get<0>(range) + frame_index * frametime;
+                if (first_t == std::numeric_limits<uint64_t>::max()) {
+                    first_t = event.t;
+                }
+                const auto frame_t = first_t + frame_index * frametime;
                 if (event.t >= frame_t) {
                     std::vector<uint8_t> frame(header.width * header.height * 3);
                     for (uint16_t y = 0; y < header.height; ++y) {
@@ -228,8 +228,7 @@ int main(int argc, char* argv[]) {
                         std::cout.write(reinterpret_cast<const char*>(frame.data()), frame.size());
                     } else {
                         std::stringstream name;
-                        name << std::setfill('0') << std::setw(name_width) << frame_index << ".ppm";
-
+                        name << std::setfill('0') << std::setw(digits) << frame_index << ".ppm";
                         const auto filename = sepia::join({output_directory, name.str()});
                         std::ofstream output(filename);
                         if (!output.good()) {
@@ -243,16 +242,16 @@ int main(int argc, char* argv[]) {
                 ts_and_ons[event.x + event.y * header.width].first = event.t;
                 ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
             };
-            input = sepia::filename_to_ifstream(command.arguments[0]);
             switch (header.event_stream_type) {
                 case sepia::type::generic:
                     throw std::runtime_error("unsupported event stream type 'generic'");
                 case sepia::type::dvs:
-                    sepia::join_observable<sepia::type::dvs>(std::move(input), generate_ppms);
+                    sepia::join_observable<sepia::type::dvs>(std::move(input), header, generate_ppms);
                     break;
                 case sepia::type::atis:
                     sepia::join_observable<sepia::type::atis>(
                         std::move(input),
+                        header,
                         sepia::make_split<sepia::type::atis>(generate_ppms, [](sepia::threshold_crossing) {}));
                     break;
                 case sepia::type::color:

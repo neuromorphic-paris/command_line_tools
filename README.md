@@ -89,9 +89,10 @@ Available options:
 
 es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists in raw rgb24 frames.
 ```
-./es_to_frames [options] /path/to/input.es
+./es_to_frames [options]
 ```
 Available options:
+  - `-i file`, `--input file` sets the path to the input .es file (defaults to standard input)
   - `-o directory`, `--output directory` sets the path to the output directory (defaults to standard output)
   - `-f frametime`, `--frametime frametime` sets the time between two frames (in microseconds, defaults to `20000`)
   - `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
@@ -99,20 +100,23 @@ Available options:
     - if `style` is `exponential`, the decay is set to `parameter`
     - if `style` is `linear`, the decay is set to `parameter / 2`
     - if `style` is `window`, the time window is set to `parameter`
-
   - `-a color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#ffffff`)
   - `-b color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#000000`)
   - `-c color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
+  - `-d digits`, `--digits` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
   - `-h`, `--help` shows the help message
 
-You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video. You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the original Event Stream dimensions (use `./size /path/to/input.es` to read them if needed).
+You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video:
 ```
-./es_to_frames [options] /path/to/input.es | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
+cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
 ```
-
+You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the Event Stream dimensions. You can use `./size /path/to/input.es` to read the dimensions:
+```
+cat /path/to/input.es | ./es_to_frames --frametime 10000 | ffmpeg -f rawvideo -s $(./size /path/to/input.es) -framerate 100 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
+```
 You can also use a lossless encoding format:
 ```
-./es_to_frames [options] /path/to/input.es | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
+cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
 ```
 
 ### rainmaker
