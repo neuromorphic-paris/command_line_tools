@@ -1,11 +1,12 @@
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
+#include "timecode.hpp"
 
 /// cut creates a new Event Stream file with only events from the given time range.
 template <sepia::type event_stream_type>
 void cut(sepia::header header, const pontella::command& command) {
-    const uint64_t begin = std::stoull(command.arguments[2]);
-    const uint64_t end = std::stoull(command.arguments[3]) + begin;
+    const auto begin = timecode(command.arguments[2]).value();
+    const auto end = timecode(command.arguments[3]).value();
     auto first = true;
     uint64_t first_t = 0;
     const auto normalize = command.flags.find("normalize") != command.flags.end();

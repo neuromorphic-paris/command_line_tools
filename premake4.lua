@@ -27,7 +27,7 @@ solution 'utilities'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/cut.cpp'}
+        files {'source/timecode.hpp', 'source/cut.cpp'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}

@@ -3,6 +3,7 @@
 #include "../third_party/sepia/source/sepia.hpp"
 #include "../third_party/tarsier/source/stitch.hpp"
 #include "html.hpp"
+#include "timecode.hpp"
 #include <numeric>
 
 /// exposure_measurement represents an exposure measurement as a time delta.
@@ -24,10 +25,10 @@ int main(int argc, char* argv[]) {
         {"rainmaker generates a standalone HTML file containing a 3D representation of events",
          "Syntax: ./rainmaker [options] /path/to/input.es /path/to/output.html",
          "Available options:",
-         "    -t [timestamp], --timestamp [timestamp]    sets the initial timestamp for the point cloud",
-         "                                                   default to 0",
-         "    -d [duration], --duration [duration]       sets the duration (in microseconds) for the point cloud",
-         "                                                   defaults to 1000000",
+         "    -t [timestamp], --timestamp [timestamp]    sets the initial timestamp (timecode) for the point cloud",
+         "                                                   defaults to 00:00:00",
+         "    -d [duration], --duration [duration]       sets the duration (timecode) for the point cloud",
+         "                                                   defaults to 00:00:01",
          "    -r [ratio], --ratio [ratio]                sets the discard ratio for logarithmic tone mapping",
          "                                                   defaults to 0.05",
          "                                                   ignored if the file does not contain ATIS events",
@@ -56,14 +57,14 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("timestamp");
                 if (name_and_argument != command.options.end()) {
-                    begin_t = std::stoull(name_and_argument->second);
+                    begin_t = timecode(name_and_argument->second).value();
                 }
             }
             auto end_t = begin_t + 1000000;
             {
                 const auto name_and_argument = command.options.find("duration");
                 if (name_and_argument != command.options.end()) {
-                    const auto duration = std::stoull(name_and_argument->second);
+                    const auto duration = timecode(name_and_argument->second).value();
                     end_t = begin_t + duration;
                 }
             }
@@ -256,7 +257,9 @@ int main(int argc, char* argv[]) {
             if (header.event_stream_type != sepia::type::dvs) {
                 const auto name_and_argument = command.options.find("frametime");
                 if (name_and_argument == command.options.end() || name_and_argument->second == "auto") {
-                    frametime = (end_t - begin_t) / (color_events.size() / (header.height * header.width));
+                    frametime = static_cast<uint64_t>(
+                        (end_t - begin_t)
+                        / (static_cast<double>(color_events.size()) / (header.height * header.width)));
                     if (frametime == 0) {
                         frametime = 1;
                     }

@@ -3,6 +3,7 @@
 #include "../third_party/tarsier/source/convert.hpp"
 #include "../third_party/tarsier/source/hash.hpp"
 #include "../third_party/tarsier/source/replicate.hpp"
+#include "timecode.hpp"
 #include <iomanip>
 #include <sstream>
 
@@ -97,8 +98,15 @@ int main(int argc, char* argv[]) {
                                         t_hash = hash_to_string(hash_value);
                                     }))));
                     }
+                    properties.emplace_back(
+                        "begin_representation", std::string("\"") + timecode(begin_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "end_representation", std::string("\"") + timecode(end_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "duration_representation", std::string("\"") + timecode(end_t - begin_t).to_string() + "\"");
                     properties.emplace_back("begin_t", std::to_string(begin_t));
                     properties.emplace_back("end_t", std::to_string(end_t));
+                    properties.emplace_back("duration", std::to_string(end_t - begin_t));
                     properties.emplace_back("events", std::to_string(events));
                     properties.emplace_back("t_hash", t_hash);
                     properties.emplace_back("bytes_hash", bytes_hash);
@@ -143,8 +151,15 @@ int main(int argc, char* argv[]) {
                                 tarsier::make_hash<uint16_t>([&](std::pair<uint64_t, uint64_t> hash_value) {
                                     y_hash = hash_to_string(hash_value);
                                 }))));
+                    properties.emplace_back(
+                        "begin_representation", std::string("\"") + timecode(begin_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "end_representation", std::string("\"") + timecode(end_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "duration_representation", std::string("\"") + timecode(end_t - begin_t).to_string() + "\"");
                     properties.emplace_back("begin_t", std::to_string(begin_t));
                     properties.emplace_back("end_t", std::to_string(end_t));
+                    properties.emplace_back("duration", std::to_string(end_t - begin_t));
                     properties.emplace_back("events", std::to_string(events));
                     properties.emplace_back("increase_events", std::to_string(increase_events));
                     properties.emplace_back("t_hash", t_hash);
@@ -200,8 +215,15 @@ int main(int argc, char* argv[]) {
                                 tarsier::make_hash<uint16_t>([&](std::pair<uint64_t, uint64_t> hash_value) {
                                     y_hash = hash_to_string(hash_value);
                                 }))));
+                    properties.emplace_back(
+                        "begin_representation", std::string("\"") + timecode(begin_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "end_representation", std::string("\"") + timecode(end_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "duration_representation", std::string("\"") + timecode(end_t - begin_t).to_string() + "\"");
                     properties.emplace_back("begin_t", std::to_string(begin_t));
                     properties.emplace_back("end_t", std::to_string(end_t));
+                    properties.emplace_back("duration", std::to_string(end_t - begin_t));
                     properties.emplace_back("events", std::to_string(events));
                     properties.emplace_back("dvs_events", std::to_string(dvs_events));
                     properties.emplace_back("increase_events", std::to_string(increase_events));
@@ -209,7 +231,6 @@ int main(int argc, char* argv[]) {
                     properties.emplace_back("t_hash", t_hash);
                     properties.emplace_back("x_hash", x_hash);
                     properties.emplace_back("y_hash", y_hash);
-
                     std::cout << properties_to_json(properties) << std::endl;
                     break;
                 }
@@ -265,8 +286,15 @@ int main(int argc, char* argv[]) {
                                 tarsier::make_hash<uint8_t>([&](std::pair<uint64_t, uint64_t> hash_value) {
                                     b_hash = hash_to_string(hash_value);
                                 }))));
+                    properties.emplace_back(
+                        "begin_representation", std::string("\"") + timecode(begin_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "end_representation", std::string("\"") + timecode(end_t).to_string() + "\"");
+                    properties.emplace_back(
+                        "duration_representation", std::string("\"") + timecode(end_t - begin_t).to_string() + "\"");
                     properties.emplace_back("begin_t", std::to_string(begin_t));
                     properties.emplace_back("end_t", std::to_string(end_t));
+                    properties.emplace_back("duration", std::to_string(end_t - begin_t));
                     properties.emplace_back("events", std::to_string(events));
                     properties.emplace_back("t_hash", t_hash);
                     properties.emplace_back("x_hash", x_hash);

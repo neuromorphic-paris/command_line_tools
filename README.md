@@ -57,12 +57,21 @@ The command-line applications are located in the *release* directory.
 
 ## documentation
 
+### timecode
+
+Time parameters in command-line applications (timestamps, durations, decays...) support three input formats:
+- raw integers (`42`, `12345`...), interpreted as microseconds
+- hh:mm:ss timecodes (`00:00:00`, `04:20:00`, `0:0:678`, `00:1440:00`...)
+- hh:mm:ss.uuuuuu timecodes (`00:00:00.123456`, `04:20:00.000000`, `0:0:678.9`...), timecodes with more than 6 digits are rounded to the nearest microsecond.
+
 ### cut
 
 cut generates a new Event Stream file with only events from the given time range.
 ```
 ./cut [options] /path/to/input.es /path/to/output.es begin duration
 ```
+`begin` and `end` must be timecodes.
+
 Available options:
   - `-h`, `--help` shows the help message
 
@@ -73,6 +82,7 @@ dat_to_es converts a TD file (and an optional APS file) to an Event Stream file.
 ./dat_to_es [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es
 ```
 If the string `none` is used for the td (respectively, aps) file, the Event Stream file is build from the aps (respectively, td) file only.
+
 Available options:
   - `-h`, `--help` shows the help message
 
@@ -94,9 +104,9 @@ es_to_frames converts an Event Stream file to video frames. Frames use the P6 Ne
 Available options:
   - `-i file`, `--input file` sets the path to the input .es file (defaults to standard input)
   - `-o directory`, `--output directory` sets the path to the output directory (defaults to standard output)
-  - `-f frametime`, `--frametime frametime` sets the time between two frames (in microseconds, defaults to `20000`)
+  - `-f frametime`, `--frametime frametime` sets the time between two frames (timecode, defaults to `00:00:00.02`)
   - `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
-  - `-p parameter`, `--parameter parameter` sets the function parameter (in microseconds, defaults to `100000`)
+  - `-p parameter`, `--parameter parameter` sets the function parameter (timecode, defaults to `00:00:00.10`)
     - if `style` is `exponential`, the decay is set to `parameter`
     - if `style` is `linear`, the decay is set to `parameter / 2`
     - if `style` is `window`, the time window is set to `parameter`
@@ -126,8 +136,8 @@ rainmaker generates a standalone HTML file containing a 3D representation of eve
 ./rainmaker [options] /path/to/input.es /path/to/output.html
 ```
 Available options:
-  - `-t [timestamp]`, `--timestamp [timestamp]` sets the initial timestamp for the point cloud (defaults to `0`)
-  - `-d [duration]`, `--duration [duration]` sets the duration (in microseconds) for the point cloud (defaults to `1000000`)
+  - `-t [timestamp]`, `--timestamp [timestamp]` sets the initial timestamp for the point cloud (defaults to `00:00:00`)
+  - `-d [duration]`, `--duration [duration]` sets the duration (in microseconds) for the point cloud (defaults to `00:00:01`)
   - `-r [ratio]`, `--ratio [ratio]` sets the discard ratio for logarithmic tone mapping (default to `0.05`, ignored if the file does not contain ATIS events)
   - `-f [duration]`, `--frametime [duration]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
   - `-h`, `--help` shows the help message

@@ -1,9 +1,8 @@
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
+#include "timecode.hpp"
 #include <iomanip>
 #include <sstream>
-
-#include <iostream>
 
 template <sepia::type type>
 std::pair<uint64_t, uint64_t> t_range(std::unique_ptr<std::istream> stream) {
@@ -58,12 +57,12 @@ int main(int argc, char* argv[]) {
          "                                               defaults to standard input",
          "    -o directory, --output directory       sets the path to the output directory",
          "                                               defaults to standard output",
-         "    -f frametime, --frametime frametime    sets the time between two frames (in microseconds)",
-         "                                               defaults to 20000",
+         "    -f frametime, --frametime frametime    sets the time between two frames (timecode)",
+         "                                               defaults to 00:00:00.02",
          "    -s style, --style style                selects the decay function",
          "                                               one of exponential (default), linear, window",
-         "    -p parameter, --parameter parameter    sets the function parameter (in microseconds)",
-         "                                               defaults to 100000",
+         "    -p parameter, --parameter parameter    sets the function parameter (timecode)",
+         "                                               defaults to 00:00:00.10",
          "                                               if style is `exponential`, the decay is set to parameter",
          "                                               if style is `linear`, the decay is set to parameter * 2",
          "                                               if style is `window`, the time window is set to parameter",
@@ -103,7 +102,7 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("frametime");
                 if (name_and_argument != command.options.end()) {
-                    frametime = std::stoull(name_and_argument->second);
+                    frametime = timecode(name_and_argument->second).value();
                     if (frametime == 0) {
                         throw std::runtime_error("the frametime must be larger than 0");
                     }
@@ -147,7 +146,7 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("parameter");
                 if (name_and_argument != command.options.end()) {
-                    parameter = std::stoull(name_and_argument->second);
+                    parameter = timecode(name_and_argument->second).value();
                     if (parameter == 0) {
                         throw std::runtime_error("the parameter must be larger than 0");
                     }
