@@ -51,11 +51,22 @@ int main(int argc, char* argv[]) {
         },
         argc,
         argv,
-        1,
-        {},
+        0,
+        {{"input", {"i"}},},
         {},
         [](pontella::command command) {
-            const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
+            
+            std::unique_ptr<std::istream> input;
+            {
+                const auto name_and_argument = command.options.find("input");
+                if (name_and_argument == command.options.end()) {
+                    input = sepia::make_unique<std::istream>(std::cin.rdbuf());
+                } else {
+                    input = sepia::filename_to_ifstream(name_and_argument->second);
+                }
+            }
+            const auto header = sepia::read_header(*input);
+
             std::vector<std::pair<std::string, std::string>> properties{
                 {"version",
                  std::string("\"") + std::to_string(static_cast<uint32_t>(std::get<0>(header.version))) + "."
@@ -79,7 +90,8 @@ int main(int argc, char* argv[]) {
                         auto hash = tarsier::make_hash<uint8_t>(
                             [&](std::pair<uint64_t, uint64_t> hash_value) { bytes_hash = hash_to_string(hash_value); });
                         sepia::join_observable<sepia::type::generic>(
-                            sepia::filename_to_ifstream(command.arguments[0]),
+                            std::move(input),
+                            header,
                             tarsier::make_replicate<sepia::generic_event>(
                                 [&](sepia::generic_event generic_event) {
                                     if (first) {
@@ -123,7 +135,8 @@ int main(int argc, char* argv[]) {
                     std::string x_hash;
                     std::string y_hash;
                     sepia::join_observable<sepia::type::dvs>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::dvs_event>(
                             [&](sepia::dvs_event dvs_event) {
                                 if (first) {
@@ -180,7 +193,8 @@ int main(int argc, char* argv[]) {
                     std::string x_hash;
                     std::string y_hash;
                     sepia::join_observable<sepia::type::atis>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::atis_event>(
                             [&](sepia::atis_event atis_event) {
                                 if (first) {
@@ -246,7 +260,8 @@ int main(int argc, char* argv[]) {
                     std::string g_hash;
                     std::string b_hash;
                     sepia::join_observable<sepia::type::color>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::color_event>(
                             [&](sepia::color_event color_event) {
                                 if (first) {
