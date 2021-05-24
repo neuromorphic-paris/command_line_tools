@@ -22,7 +22,7 @@ std::string type_to_string(sepia::type type) {
     return "unknown";
 }
 
-/// hash_to_string converts a 128 bits hash to a hxadecimal representation.
+/// hash_to_string converts a 128 bits hash to a hexadecimal representation.
 std::string hash_to_string(std::pair<uint64_t, uint64_t> hash) {
     std::stringstream stream;
     stream << '"' << std::hex << std::get<1>(hash) << std::hex << std::setfill('0') << std::setw(16)
@@ -45,17 +45,40 @@ int main(int argc, char* argv[]) {
     return pontella::main(
         {
             "statistics retrieves the event stream's properties and outputs them in JSON format.",
-            "Syntax: ./statistics [options] /path/to/input.es",
+            "Syntax: ./statistics [options] [/path/to/input.es]",
             "Available options:",
+            "    -i file, --input file                  sets the path to the input .es file",
+            "                                               defaults to standard input",
             "    -h, --help    shows this help message",
         },
         argc,
         argv,
-        1,
-        {},
+        -1,
+        {{"input", {"i"}}},
         {},
         [](pontella::command command) {
-            const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
+            std::unique_ptr<std::istream> input;
+            {
+                const auto name_and_argument = command.options.find("input");
+                if (name_and_argument == command.options.end()) {
+                    if (command.arguments.empty()) {
+                        input = sepia::make_unique<std::istream>(std::cin.rdbuf());
+                    } else if (command.arguments.size() == 1) {
+                        input = sepia::filename_to_ifstream(command.arguments.front());
+                    } else {
+                        throw std::runtime_error("too many arguments (expected 0 or 1)");
+                    }
+                } else {
+                    if (command.arguments.empty()) {
+                        input = sepia::filename_to_ifstream(name_and_argument->second);
+                    } else if (command.arguments.size() == 1) {
+                        throw std::runtime_error("a filename can be passed either as a positional argument or to the --input option, not both");
+                    } else {
+                        throw std::runtime_error("too many arguments (expected 0 or 1)");
+                    }
+                }
+            }
+            const auto header = sepia::read_header(*input);
             std::vector<std::pair<std::string, std::string>> properties{
                 {"version",
                  std::string("\"") + std::to_string(static_cast<uint32_t>(std::get<0>(header.version))) + "."
@@ -79,7 +102,8 @@ int main(int argc, char* argv[]) {
                         auto hash = tarsier::make_hash<uint8_t>(
                             [&](std::pair<uint64_t, uint64_t> hash_value) { bytes_hash = hash_to_string(hash_value); });
                         sepia::join_observable<sepia::type::generic>(
-                            sepia::filename_to_ifstream(command.arguments[0]),
+                            std::move(input),
+                            header,
                             tarsier::make_replicate<sepia::generic_event>(
                                 [&](sepia::generic_event generic_event) {
                                     if (first) {
@@ -123,7 +147,8 @@ int main(int argc, char* argv[]) {
                     std::string x_hash;
                     std::string y_hash;
                     sepia::join_observable<sepia::type::dvs>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::dvs_event>(
                             [&](sepia::dvs_event dvs_event) {
                                 if (first) {
@@ -180,7 +205,8 @@ int main(int argc, char* argv[]) {
                     std::string x_hash;
                     std::string y_hash;
                     sepia::join_observable<sepia::type::atis>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::atis_event>(
                             [&](sepia::atis_event atis_event) {
                                 if (first) {
@@ -246,7 +272,8 @@ int main(int argc, char* argv[]) {
                     std::string g_hash;
                     std::string b_hash;
                     sepia::join_observable<sepia::type::color>(
-                        sepia::filename_to_ifstream(command.arguments[0]),
+                        std::move(input),
+                        header,
                         tarsier::make_replicate<sepia::color_event>(
                             [&](sepia::color_event color_event) {
                                 if (first) {
