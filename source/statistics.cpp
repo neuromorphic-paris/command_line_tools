@@ -22,7 +22,7 @@ std::string type_to_string(sepia::type type) {
     return "unknown";
 }
 
-/// hash_to_string converts a 128 bits hash to a hxadecimal representation.
+/// hash_to_string converts a 128 bits hash to a hexadecimal representation.
 std::string hash_to_string(std::pair<uint64_t, uint64_t> hash) {
     std::stringstream stream;
     stream << '"' << std::hex << std::get<1>(hash) << std::hex << std::setfill('0') << std::setw(16)
@@ -45,8 +45,7 @@ int main(int argc, char* argv[]) {
     return pontella::main(
         {
             "statistics retrieves the event stream's properties and outputs them in JSON format.",
-            "Syntax: ./statistics [options] /path/to/input.es",
-            "Available options:",
+            "Syntax: ./statistics [options] [/path/to/input.es]",
             "Available options:",
             "    -i file, --input file                  sets the path to the input .es file",
             "                                               defaults to standard input",
@@ -54,22 +53,32 @@ int main(int argc, char* argv[]) {
         },
         argc,
         argv,
-        0,
-        {{"input", {"i"}},},
+        -1,
+        {{"input", {"i"}}},
         {},
         [](pontella::command command) {
-            
             std::unique_ptr<std::istream> input;
             {
                 const auto name_and_argument = command.options.find("input");
                 if (name_and_argument == command.options.end()) {
-                    input = sepia::make_unique<std::istream>(std::cin.rdbuf());
+                    if (command.arguments.empty()) {
+                        input = sepia::make_unique<std::istream>(std::cin.rdbuf());
+                    } else if (command.arguments.size() == 1) {
+                        input = sepia::filename_to_ifstream(command.arguments.front());
+                    } else {
+                        throw std::runtime_error("too many arguments (expected 0 or 1)");
+                    }
                 } else {
-                    input = sepia::filename_to_ifstream(name_and_argument->second);
+                    if (command.arguments.empty()) {
+                        input = sepia::filename_to_ifstream(name_and_argument->second);
+                    } else if (command.arguments.size() == 1) {
+                        throw std::runtime_error("a filename can be passed either as a positional argument or to the --input option, not both");
+                    } else {
+                        throw std::runtime_error("too many arguments (expected 0 or 1)");
+                    }
                 }
             }
             const auto header = sepia::read_header(*input);
-
             std::vector<std::pair<std::string, std::string>> properties{
                 {"version",
                  std::string("\"") + std::to_string(static_cast<uint32_t>(std::get<0>(header.version))) + "."
