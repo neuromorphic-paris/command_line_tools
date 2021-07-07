@@ -6,7 +6,7 @@
 template <sepia::type event_stream_type>
 void cut(sepia::header header, const pontella::command& command) {
     const auto begin = timecode(command.arguments[2]).value();
-    const auto end = timecode(command.arguments[3]).value();
+    const auto end = begin + timecode(command.arguments[3]).value();
     auto first = true;
     uint64_t first_t = 0;
     const auto normalize = command.flags.find("normalize") != command.flags.end();

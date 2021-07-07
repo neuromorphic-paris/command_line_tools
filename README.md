@@ -70,7 +70,7 @@ cut generates a new Event Stream file with only events from the given time range
 ```
 ./cut [options] /path/to/input.es /path/to/output.es begin duration
 ```
-`begin` and `end` must be timecodes.
+`begin` and `duration` must be timecodes.
 
 Available options:
   - `-h`, `--help` shows the help message
