@@ -19,9 +19,14 @@ int main(int argc, char* argv[]) {
             switch (header.event_stream_type) {
                 case sepia::type::generic:
                     throw std::runtime_error("generic events do not have spatial dimensions");
+                case sepia::type::atis:
+                    std::cout << (header.width * 2) << "x" << header.height;
+                    std::cout.flush();
+                    break;
                 default:
                     std::cout << header.width << "x" << header.height;
                     std::cout.flush();
+                    break;
             }
         });
     return 0;

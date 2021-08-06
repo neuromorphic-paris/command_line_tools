@@ -1,8 +1,17 @@
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
+#include "../third_party/tarsier/source/replicate.hpp"
+#include "../third_party/tarsier/source/stitch.hpp"
 #include "timecode.hpp"
 #include <iomanip>
 #include <sstream>
+
+/// exposure_measurement holds the parameters of an absolute luminance sample.
+SEPIA_PACK(struct exposure_measurement {
+    uint64_t delta_t;
+    uint16_t x;
+    uint16_t y;
+});
 
 template <sepia::type type>
 std::pair<uint64_t, uint64_t> t_range(std::unique_ptr<std::istream> stream) {
@@ -46,6 +55,146 @@ struct color {
     }
 };
 
+class frame {
+    public:
+    frame(uint16_t width, uint16_t height) : _width(width), _height(height), _bytes(width * height * 3) {}
+    frame(const frame&) = delete;
+    frame(frame&& other) = default;
+    frame& operator=(const frame&) = delete;
+    frame& operator=(frame&& other) = delete;
+    virtual ~frame() {}
+
+    virtual void paste_ts_and_ons(
+        uint16_t width,
+        uint16_t height,
+        const std::vector<std::pair<uint64_t, bool>>& ts_and_ons,
+        uint16_t x_offset,
+        uint16_t y_offset,
+        style decay_style,
+        uint64_t parameter,
+        color on_color,
+        color off_color,
+        color idle_color,
+        uint64_t frame_t) {
+        for (uint16_t y = 0; y < height; ++y) {
+            for (uint16_t x = 0; x < width; ++x) {
+                const auto& t_and_on = ts_and_ons[x + y * width];
+                float lambda;
+                if (t_and_on.first == std::numeric_limits<uint64_t>::max()) {
+                    lambda = 0.0f;
+                } else {
+                    switch (decay_style) {
+                        case style::exponential:
+                            lambda = std::exp(
+                                -static_cast<float>(frame_t - 1 - t_and_on.first) / static_cast<float>(parameter));
+                            break;
+                        case style::linear:
+                            lambda = t_and_on.first + 2 * parameter > frame_t - 1 ?
+                                         static_cast<float>(t_and_on.first + 2 * parameter - (frame_t - 1))
+                                             / static_cast<float>(2 * parameter) :
+                                         0.0f;
+                            break;
+                        case style::window:
+                            lambda = t_and_on.first + parameter > frame_t - 1 ? 1.0f : 0.0f;
+                            break;
+                    }
+                }
+                const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
+                _bytes[index] = idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
+                _bytes[index + 1] = idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
+                _bytes[index + 2] = idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
+            }
+        }
+    }
+
+    virtual void paste_delta_ts(
+        uint16_t width,
+        uint16_t height,
+        const std::vector<uint64_t>& delta_ts,
+        uint16_t x_offset,
+        uint16_t y_offset,
+        uint64_t white,
+        bool white_auto,
+        uint64_t black,
+        bool black_auto,
+        float discard_ratio) {
+        auto minimum = 0.5f;
+        auto maximum = 0.5f;
+        if (white_auto || black_auto) {
+            std::vector<uint64_t> sorted_delta_ts(delta_ts.size());
+            const auto end =
+                std::copy_if(delta_ts.begin(), delta_ts.end(), sorted_delta_ts.begin(), [](uint64_t delta_t) {
+                    return delta_t < std::numeric_limits<uint64_t>::max() && delta_t > 0;
+                });
+            const auto size = static_cast<std::size_t>(std::distance(sorted_delta_ts.begin(), end));
+            if (size > 0) {
+                std::sort(sorted_delta_ts.begin(), end);
+                auto black_candidate = sorted_delta_ts[static_cast<std::size_t>(size * (1.0f - discard_ratio))];
+                auto white_candidate = sorted_delta_ts[static_cast<std::size_t>(size * discard_ratio + 0.5f)];
+                if (black_candidate > white_candidate) {
+                    minimum = 1.0f / static_cast<float>(black_candidate);
+                    maximum = 1.0f / static_cast<float>(white_candidate);
+                } else {
+                    black_candidate = *std::prev(end);
+                    white_candidate = sorted_delta_ts.front();
+                    if (black_candidate > white_candidate) {
+                        minimum = 1.0f / static_cast<float>(black_candidate);
+                        maximum = 1.0f / static_cast<float>(white_candidate);
+                    }
+                }                
+            }
+        } else {
+            minimum = 1.0f / static_cast<float>(black);
+            maximum = 1.0f / static_cast<float>(white);
+        }
+        auto slope = 0.0f;
+        auto intercept = 0.5f;
+        if (maximum > minimum) {
+            slope = 1.0f / (maximum - minimum);
+            intercept = -slope * minimum;
+        }
+        for (uint16_t y = 0; y < height; ++y) {
+            for (uint16_t x = 0; x < width; ++x) {
+                const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
+                const auto delta_t = delta_ts[x + y * width];
+                uint8_t value = 0;
+                if (delta_t > 0) {
+                    const auto luminance = 1.0f / static_cast<float>(delta_t);
+                    if (luminance >= maximum) {
+                        value = 255;
+                    } else if (luminance > minimum) {
+                        value = static_cast<uint8_t>((slope * luminance + intercept) * 255.0f);
+                    }
+                }
+                _bytes[index] = value;
+                _bytes[index + 1] = value;
+                _bytes[index + 2] = value;
+            }
+        }
+    }
+
+    virtual void write(const std::string& output_directory, uint8_t digits, uint64_t frame_index) const {
+        if (output_directory.empty()) {
+            std::cout.write(reinterpret_cast<const char*>(_bytes.data()), _bytes.size());
+        } else {
+            std::stringstream name;
+            name << std::setfill('0') << std::setw(digits) << frame_index << ".ppm";
+            const auto filename = sepia::join({output_directory, name.str()});
+            std::ofstream output(filename);
+            if (!output.good()) {
+                throw sepia::unwritable_file(filename);
+            }
+            output << "P6\n" << _width << " " << _height << "\n255\n";
+            output.write(reinterpret_cast<const char*>(_bytes.data()), _bytes.size());
+        }
+    }
+
+    protected:
+    const uint16_t _width;
+    const uint16_t _height;
+    std::vector<uint8_t> _bytes;
+};
+
 int main(int argc, char* argv[]) {
     return pontella::main(
         {"es_to_frames converts an Event Stream file to video frames",
@@ -81,6 +230,15 @@ int main(int argc, char* argv[]) {
          "    -d digits, --digits digits             sets the number of digits in output filenames",
          "                                               ignored if the output is not a directory",
          "                                               defaults to 6",
+         "    -e ratio, --discard-ratio ratio        sets the ratio of pixels discarded for tone mapping",
+         "                                               ignored if the stream type is not atis",
+         "                                               used for white (resp. black) if --white (resp. --black) is "
+         "not set",
+         "                                               defaults to 0.01",
+         "    -w duration, --white duration          sets the white integration duration for tone mapping (timecode)",
+         "                                               defaults to automatic discard calculation",
+         "    -b duration, --black duration          sets the black integration duration for tone mapping (timecode)",
+         "                                               defaults to automatic discard calculation",
          "    -h, --help                 shows this help message"},
         argc,
         argv,
@@ -180,79 +338,139 @@ int main(int argc, char* argv[]) {
                     digits = static_cast<uint8_t>(digits_candidate);
                 }
             }
-            std::vector<std::pair<uint64_t, bool>> ts_and_ons(
-                header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
-            uint64_t frame_index = 0;
-            auto first_t = std::numeric_limits<uint64_t>::max();
-            auto generate_ppms = [&](sepia::dvs_event event) {
-                if (first_t == std::numeric_limits<uint64_t>::max()) {
-                    first_t = event.t;
-                }
-                const auto frame_t = first_t + frame_index * frametime;
-                if (event.t >= frame_t) {
-                    std::vector<uint8_t> frame(header.width * header.height * 3);
-                    for (uint16_t y = 0; y < header.height; ++y) {
-                        for (uint16_t x = 0; x < header.width; ++x) {
-                            const auto& t_and_on = ts_and_ons[x + y * header.width];
-                            float lambda;
-                            if (t_and_on.first == std::numeric_limits<uint64_t>::max()) {
-                                lambda = 0.0f;
-                            } else {
-                                switch (decay_style) {
-                                    case style::exponential:
-                                        lambda = std::exp(
-                                            -static_cast<float>(frame_t - 1 - t_and_on.first)
-                                            / static_cast<float>(parameter));
-                                        break;
-                                    case style::linear:
-                                        lambda = t_and_on.first + 2 * parameter > frame_t - 1 ?
-                                                     static_cast<float>(t_and_on.first + 2 * parameter - (frame_t - 1))
-                                                         / static_cast<float>(2 * parameter) :
-                                                     0.0f;
-                                        break;
-                                    case style::window:
-                                        lambda = t_and_on.first + parameter > frame_t - 1 ? 1.0f : 0.0f;
-                                        break;
-                                }
-                            }
-                            frame[(x + (header.height - 1 - y) * header.width) * 3] =
-                                idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
-                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 1] =
-                                idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
-                            frame[(x + (header.height - 1 - y) * header.width) * 3 + 2] =
-                                idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
-                        }
-                    }
-                    if (output_directory.empty()) {
-                        std::cout.write(reinterpret_cast<const char*>(frame.data()), frame.size());
-                    } else {
-                        std::stringstream name;
-                        name << std::setfill('0') << std::setw(digits) << frame_index << ".ppm";
-                        const auto filename = sepia::join({output_directory, name.str()});
-                        std::ofstream output(filename);
-                        if (!output.good()) {
-                            throw sepia::unwritable_file(filename);
-                        }
-                        output << "P6\n" << header.width << " " << header.height << "\n255\n";
-                        output.write(reinterpret_cast<const char*>(frame.data()), frame.size());
-                    }
-                    ++frame_index;
-                }
-                ts_and_ons[event.x + event.y * header.width].first = event.t;
-                ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
-            };
             switch (header.event_stream_type) {
                 case sepia::type::generic:
                     throw std::runtime_error("unsupported event stream type 'generic'");
-                case sepia::type::dvs:
-                    sepia::join_observable<sepia::type::dvs>(std::move(input), header, generate_ppms);
+                case sepia::type::dvs: {
+                    std::vector<std::pair<uint64_t, bool>> ts_and_ons(
+                        header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                    uint64_t frame_index = 0;
+                    auto first_t = std::numeric_limits<uint64_t>::max();
+                    frame output_frame(header.width, header.height);
+                    sepia::join_observable<sepia::type::dvs>(std::move(input), header, [&](sepia::dvs_event event) {
+                        if (first_t == std::numeric_limits<uint64_t>::max()) {
+                            first_t = event.t;
+                        }
+                        const auto frame_t = first_t + frame_index * frametime;
+                        if (event.t >= frame_t) {
+                            output_frame.paste_ts_and_ons(
+                                header.width,
+                                header.height,
+                                ts_and_ons,
+                                0,
+                                0,
+                                decay_style,
+                                parameter,
+                                on_color,
+                                off_color,
+                                idle_color,
+                                frame_t);
+                            output_frame.write(output_directory, digits, frame_index);
+                            ++frame_index;
+                        }
+                        ts_and_ons[event.x + event.y * header.width].first = event.t;
+                        ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
+                    });
                     break;
-                case sepia::type::atis:
+                }
+                case sepia::type::atis: {
+                    uint64_t white = 0;
+                    auto white_auto = true;
+                    {
+                        const auto name_and_argument = command.options.find("white");
+                        if (name_and_argument != command.options.end()) {
+                            white = timecode(name_and_argument->second).value();
+                            white_auto = false;
+                            if (white == 0) {
+                                throw std::runtime_error("white must be larger than 0");
+                            }
+                        }
+                    }
+                    uint64_t black = 0;
+                    auto black_auto = true;
+                    {
+                        const auto name_and_argument = command.options.find("black");
+                        if (name_and_argument != command.options.end()) {
+                            black = timecode(name_and_argument->second).value();
+                            black_auto = false;
+                            if (black == 0) {
+                                throw std::runtime_error("black must be larger than 0");
+                            }
+                            if (!white_auto && white > black) {
+                                throw std::runtime_error("white must be smaller than or equal to black");
+                            }
+                        }
+                    }
+                    auto discard_ratio = 0.01f;
+                    if (white_auto || black_auto) {
+                        const auto name_and_argument = command.options.find("discard-ratio");
+                        if (name_and_argument != command.options.end()) {
+                            discard_ratio = std::stof(name_and_argument->second);
+                            if (discard_ratio < 0.0f || discard_ratio > 1.0f) {
+                                throw std::runtime_error("discard-ratio must be in he range [0, 1]");
+                            }
+                        }
+                    }
+                    std::vector<std::pair<uint64_t, bool>> ts_and_ons(
+                        header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                    std::vector<uint64_t> delta_ts(header.width * header.height, std::numeric_limits<uint64_t>::max());
+                    uint64_t frame_index = 0;
+                    auto first_t = std::numeric_limits<uint64_t>::max();
+                    frame output_frame(header.width * 2, header.height);
                     sepia::join_observable<sepia::type::atis>(
                         std::move(input),
                         header,
-                        sepia::make_split<sepia::type::atis>(generate_ppms, [](sepia::threshold_crossing) {}));
+                        tarsier::make_replicate<sepia::atis_event>(
+                            [&](sepia::atis_event event) {
+                                if (first_t == std::numeric_limits<uint64_t>::max()) {
+                                    first_t = event.t;
+                                }
+                                const auto frame_t = first_t + frame_index * frametime;
+                                if (event.t >= frame_t) {
+                                    output_frame.paste_ts_and_ons(
+                                        header.width,
+                                        header.height,
+                                        ts_and_ons,
+                                        0,
+                                        0,
+                                        decay_style,
+                                        parameter,
+                                        on_color,
+                                        off_color,
+                                        idle_color,
+                                        frame_t);
+                                    output_frame.paste_delta_ts(
+                                        header.width,
+                                        header.height,
+                                        delta_ts,
+                                        header.width,
+                                        0,
+                                        white,
+                                        white_auto,
+                                        black,
+                                        black_auto,
+                                        discard_ratio);
+                                    output_frame.write(output_directory, digits, frame_index);
+                                    ++frame_index;
+                                }
+                            },
+                            sepia::make_split<sepia::type::atis>(
+                                [&](sepia::dvs_event event) {
+                                    ts_and_ons[event.x + event.y * header.width].first = event.t;
+                                    ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
+                                },
+                                tarsier::make_stitch<sepia::threshold_crossing, exposure_measurement>(
+                                    header.width,
+                                    header.height,
+                                    [](sepia::threshold_crossing threshold_crossing,
+                                       uint64_t delta_t) -> exposure_measurement {
+                                        return {delta_t, threshold_crossing.x, threshold_crossing.y};
+                                    },
+                                    [&](exposure_measurement event) {
+                                        delta_ts[event.x + event.y * header.width] = event.delta_t;
+                                    }))));
                     break;
+                }
                 case sepia::type::color:
                     throw std::runtime_error("unsupported event stream type 'color'");
             }
