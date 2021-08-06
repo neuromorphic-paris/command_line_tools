@@ -117,7 +117,8 @@ class frame {
         bool white_auto,
         uint64_t black,
         bool black_auto,
-        float discard_ratio) {
+        float discard_ratio,
+        color atis_color) {
         auto minimum = 0.5f;
         auto maximum = 0.5f;
         if (white_auto || black_auto) {
@@ -141,7 +142,7 @@ class frame {
                         minimum = 1.0f / static_cast<float>(black_candidate);
                         maximum = 1.0f / static_cast<float>(white_candidate);
                     }
-                }                
+                }
             }
         } else {
             minimum = 1.0f / static_cast<float>(black);
@@ -157,18 +158,24 @@ class frame {
             for (uint16_t x = 0; x < width; ++x) {
                 const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
                 const auto delta_t = delta_ts[x + y * width];
-                uint8_t value = 0;
-                if (delta_t > 0) {
-                    const auto luminance = 1.0f / static_cast<float>(delta_t);
-                    if (luminance >= maximum) {
-                        value = 255;
-                    } else if (luminance > minimum) {
-                        value = static_cast<uint8_t>((slope * luminance + intercept) * 255.0f);
+                if (delta_t == std::numeric_limits<uint64_t>::max()) {
+                    _bytes[index] = atis_color.r;
+                    _bytes[index + 1] = atis_color.g;
+                    _bytes[index + 2] = atis_color.b;
+                } else {
+                    uint8_t value = 0;
+                    if (delta_t > 0) {
+                        const auto luminance = 1.0f / static_cast<float>(delta_t);
+                        if (luminance >= maximum) {
+                            value = 255;
+                        } else if (luminance > minimum) {
+                            value = static_cast<uint8_t>((slope * luminance + intercept) * 255.0f);
+                        }
                     }
+                    _bytes[index] = value;
+                    _bytes[index + 1] = value;
+                    _bytes[index + 2] = value;
                 }
-                _bytes[index] = value;
-                _bytes[index + 1] = value;
-                _bytes[index + 2] = value;
             }
         }
     }
@@ -237,8 +244,12 @@ int main(int argc, char* argv[]) {
          "                                               defaults to 0.01",
          "    -w duration, --white duration          sets the white integration duration for tone mapping (timecode)",
          "                                               defaults to automatic discard calculation",
-         "    -b duration, --black duration          sets the black integration duration for tone mapping (timecode)",
+         "    -x duration, --black duration          sets the black integration duration for tone mapping (timecode)",
          "                                               defaults to automatic discard calculation",
+         "    -j color, --atiscolor color            sets the background color for ATIS exposure measurements",
+         "                                               color must be formatted as #hhhhhh,",
+         "                                               where h is an hexadecimal digit",
+         "                                               defaults to #000000",
          "    -h, --help                 shows this help message"},
         argc,
         argv,
@@ -253,6 +264,10 @@ int main(int argc, char* argv[]) {
             {"offcolor", {"b"}},
             {"idlecolor", {"c"}},
             {"digits", {"d"}},
+            {"discard-ratio", {"e"}},
+            {"white", {"w"}},
+            {"black", {"x"}},
+            {"atiscolor", {"j"}},
         },
         {},
         [](pontella::command command) {
@@ -411,6 +426,13 @@ int main(int argc, char* argv[]) {
                             }
                         }
                     }
+                    color atis_color(0x00, 0x00, 0x00);
+                    {
+                        const auto name_and_argument = command.options.find("atiscolor");
+                        if (name_and_argument != command.options.end()) {
+                            atis_color = color(name_and_argument->second);
+                        }
+                    }
                     std::vector<std::pair<uint64_t, bool>> ts_and_ons(
                         header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
                     std::vector<uint64_t> delta_ts(header.width * header.height, std::numeric_limits<uint64_t>::max());
@@ -449,7 +471,8 @@ int main(int argc, char* argv[]) {
                                         white_auto,
                                         black,
                                         black_auto,
-                                        discard_ratio);
+                                        discard_ratio,
+                                        atis_color);
                                     output_frame.write(output_directory, digits, frame_index);
                                     ++frame_index;
                                 }
