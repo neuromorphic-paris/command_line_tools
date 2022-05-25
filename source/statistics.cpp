@@ -72,7 +72,8 @@ int main(int argc, char* argv[]) {
                     if (command.arguments.empty()) {
                         input = sepia::filename_to_ifstream(name_and_argument->second);
                     } else if (command.arguments.size() == 1) {
-                        throw std::runtime_error("a filename can be passed either as a positional argument or to the --input option, not both");
+                        throw std::runtime_error("a filename can be passed either as a positional argument or to the "
+                                                 "--input option, not both");
                     } else {
                         throw std::runtime_error("too many arguments (expected 0 or 1)");
                     }
