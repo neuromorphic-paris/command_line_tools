@@ -124,7 +124,7 @@ Available options:
 
 You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video:
 ```
-cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv444p /path/to/output.mp4
+cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv420p /path/to/output.mp4
 ```
 You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the Event Stream dimensions. You can use `./size /path/to/input.es` to read the dimensions:
 ```
@@ -132,7 +132,7 @@ cat /path/to/input.es | ./es_to_frames --frametime 10000 | ffmpeg -f rawvideo -s
 ```
 You can also use a lossless encoding format:
 ```
-cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
+cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv420p /path/to/output.mp4
 ```
 
 ### rainmaker

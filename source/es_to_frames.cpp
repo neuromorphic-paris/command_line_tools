@@ -218,7 +218,7 @@ int main(int argc, char* argv[]) {
          "    -s style, --style style                selects the decay function",
          "                                               one of exponential (default), linear, window",
          "    -p parameter, --parameter parameter    sets the function parameter (timecode)",
-         "                                               defaults to 00:00:00.10",
+         "                                               defaults to 00:00:00.20",
          "                                               if style is `exponential`, the decay is set to parameter",
          "                                               if style is `linear`, the decay is set to parameter * 2",
          "                                               if style is `window`, the time window is set to parameter",
@@ -281,21 +281,21 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            color on_color(0xff, 0xff, 0xff);
+            color on_color(0xf4, 0xc2, 0x0d);
             {
                 const auto name_and_argument = command.options.find("oncolor");
                 if (name_and_argument != command.options.end()) {
                     on_color = color(name_and_argument->second);
                 }
             }
-            color off_color(0x00, 0x00, 0x00);
+            color off_color(0x1e, 0x88, 0xe5);
             {
                 const auto name_and_argument = command.options.find("offcolor");
                 if (name_and_argument != command.options.end()) {
                     off_color = color(name_and_argument->second);
                 }
             }
-            color idle_color(0x80, 0x80, 0x80);
+            color idle_color(0x29, 0x29, 0x29);
             {
                 const auto name_and_argument = command.options.find("idlecolor");
                 if (name_and_argument != command.options.end()) {
@@ -315,7 +315,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            uint64_t parameter = 100000;
+            uint64_t parameter = 200000;
             {
                 const auto name_and_argument = command.options.find("parameter");
                 if (name_and_argument != command.options.end()) {
