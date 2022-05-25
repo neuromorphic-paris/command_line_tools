@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
          "                                                   a duration in microseconds can be provided instead,",
          "                                                   'none' disables the frames,",
          "                                                   ignored if the file contains DVS events",
+         "    -a, --dark                                 render in dark mode",
          "    -h, --help                                 shows this help message"},
         argc,
         argv,
@@ -50,7 +51,9 @@ int main(int argc, char* argv[]) {
             {"ratio", {"r"}},
             {"frametime", {"f"}},
         },
-        {},
+        {
+            {"dark", {"a"}},
+        },
         [](pontella::command command) {
             const auto nodes = html::parse(filename_to_string(sepia::join({SEPIA_DIRNAME, "rainmaker.html"})));
             uint64_t begin_t = 0;
@@ -68,6 +71,7 @@ int main(int argc, char* argv[]) {
                     end_t = begin_t + duration;
                 }
             }
+            const auto dark = command.flags.find("dark") != command.flags.end();
             {
                 std::ofstream output(command.arguments[1]);
                 if (!output.good()) {
@@ -84,19 +88,29 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 case sepia::type::dvs: {
-                    sepia::join_observable<sepia::type::dvs>(
-                        sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::dvs_event dvs_event) {
-                            if (dvs_event.t >= end_t) {
-                                throw sepia::end_of_file();
-                            }
-                            if (dvs_event.t >= begin_t) {
-                                if (dvs_event.is_increase) {
+                    sepia::join_observable<
+                        sepia::type::
+                            dvs>(sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::dvs_event dvs_event) {
+                        if (dvs_event.t >= end_t) {
+                            throw sepia::end_of_file();
+                        }
+                        if (dvs_event.t >= begin_t) {
+                            if (dvs_event.is_increase) {
+                                if (dark) {
+                                    color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0xfb, 0xbc, 0x05});
+                                } else {
                                     color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0x00, 0x8c, 0xff});
+                                }
+
+                            } else {
+                                if (dark) {
+                                    color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0x42, 0x85, 0xf4});
                                 } else {
                                     color_events.push_back({dvs_event.t, dvs_event.x, dvs_event.y, 0x33, 0x4d, 0x5c});
                                 }
                             }
-                        });
+                        }
+                    });
                     if (color_events.empty()) {
                         throw std::runtime_error("there are no DVS events in the given file and range");
                     }
@@ -124,11 +138,22 @@ int main(int argc, char* argv[]) {
                                 }
                                 if (dvs_event.t >= begin_t) {
                                     if (dvs_event.is_increase) {
-                                        dvs_color_events.push_back(
-                                            {dvs_event.t, dvs_event.x, dvs_event.y, 0xbb, 0xbb, 0xbb});
+                                        if (dark) {
+                                            color_events.push_back(
+                                                {dvs_event.t, dvs_event.x, dvs_event.y, 0xfb, 0xbc, 0x05});
+                                        } else {
+                                            color_events.push_back(
+                                                {dvs_event.t, dvs_event.x, dvs_event.y, 0x00, 0x8c, 0xff});
+                                        }
+
                                     } else {
-                                        dvs_color_events.push_back(
-                                            {dvs_event.t, dvs_event.x, dvs_event.y, 0x33, 0x4d, 0x5c});
+                                        if (dark) {
+                                            color_events.push_back(
+                                                {dvs_event.t, dvs_event.x, dvs_event.y, 0x42, 0x85, 0xf4});
+                                        } else {
+                                            color_events.push_back(
+                                                {dvs_event.t, dvs_event.x, dvs_event.y, 0x33, 0x4d, 0x5c});
+                                        }
                                     }
                                 }
                             },
@@ -330,6 +355,14 @@ int main(int argc, char* argv[]) {
                      html::variable(std::to_string(
                          header.width > header.height ? static_cast<double>(header.height) / header.width : 1.0))},
                     {"z_max", html::variable(std::to_string(1.0))},
+                    {"color_axis", html::variable(std::string(dark ? "#bbbbbb" : "#334d5c"))},
+                    {"color_link", html::variable(std::string(dark ? "#005cb2" : "#334d5c"))},
+                    {"color_active", html::variable(std::string(dark ? "#1e88e5" : "#008cff"))},
+                    {"color_background", html::variable(std::string(dark ? "#292929" : "#ffffff"))},
+                    {"color_separator", html::variable(std::string(dark ? "#494949" : "#e8e8e8"))},
+                    {"color_controls_background", html::variable(std::string(dark ? "#393939" : "#fafafa"))},
+                    {"color_nolink", html::variable(std::string(dark ? "#888888" : "#b4b4b4"))},
+                    {"color_content", html::variable(std::string(dark ? "#ffffff" : "#555555"))},
                     {"width", html::variable(std::to_string(header.width))},
                     {"height", html::variable(std::to_string(header.height))},
                     {"begin_t", html::variable(std::to_string(begin_t))},
