@@ -136,6 +136,7 @@ Available options:
 -   `-j color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#ffffff`)
 -   `-k color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#000000`)
 -   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
+-   `-a`, `--add-timecode` adds a timecode overlay
 -   `-d digits`, `--digits digits` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
 -   `-r ratio`, `--discard-ratio ratio` sets the ratio of pixels discarded for tone mapping, ignored if the stream type is not atis, used for black (resp. white) if `--black` (resp. `--white`) is not set (defaults to 0.01)
 -   `-v duration`, `--black duration` sets the black integration duration for tone mapping (timecode, defaults to automatic discard calculation)
