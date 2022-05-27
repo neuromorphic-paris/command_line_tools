@@ -1,7 +1,10 @@
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "../third_party/stb_truetype.hpp"
 #include "../third_party/tarsier/source/replicate.hpp"
 #include "../third_party/tarsier/source/stitch.hpp"
+#include "font.hpp"
 #include "timecode.hpp"
 #include <iomanip>
 #include <sstream>
@@ -13,18 +16,9 @@ SEPIA_PACK(struct exposure_measurement {
     uint16_t y;
 });
 
-template <sepia::type type>
-std::pair<uint64_t, uint64_t> t_range(std::unique_ptr<std::istream> stream) {
-    uint64_t first_t = std::numeric_limits<uint64_t>::max();
-    uint64_t last_t = 0;
-    sepia::join_observable<type>(std::move(stream), [&](sepia::event<type> event) {
-        if (first_t == std::numeric_limits<uint64_t>::max()) {
-            first_t = event.t;
-        }
-        last_t = event.t;
-    });
-    return {first_t, last_t};
-}
+constexpr uint16_t font_left = 20;
+constexpr uint16_t font_top = 20;
+constexpr uint16_t font_size = 30;
 
 enum class style { exponential, linear, window };
 
@@ -59,7 +53,7 @@ class frame {
     public:
     frame(uint16_t width, uint16_t height) : _width(width), _height(height), _bytes(width * height * 3) {}
     frame(const frame&) = delete;
-    frame(frame&& other) = default;
+    frame(frame&& other) = delete;
     frame& operator=(const frame&) = delete;
     frame& operator=(frame&& other) = delete;
     virtual ~frame() {}
@@ -71,7 +65,7 @@ class frame {
         uint16_t x_offset,
         uint16_t y_offset,
         style decay_style,
-        uint64_t parameter,
+        uint64_t tau,
         color on_color,
         color off_color,
         color idle_color,
@@ -85,17 +79,17 @@ class frame {
                 } else {
                     switch (decay_style) {
                         case style::exponential:
-                            lambda = std::exp(
-                                -static_cast<float>(frame_t - 1 - t_and_on.first) / static_cast<float>(parameter));
+                            lambda =
+                                std::exp(-static_cast<float>(frame_t - 1 - t_and_on.first) / static_cast<float>(tau));
                             break;
                         case style::linear:
-                            lambda = t_and_on.first + 2 * parameter > frame_t - 1 ?
-                                         static_cast<float>(t_and_on.first + 2 * parameter - (frame_t - 1))
-                                             / static_cast<float>(2 * parameter) :
+                            lambda = t_and_on.first + 2 * tau > frame_t - 1 ?
+                                         static_cast<float>(t_and_on.first + 2 * tau - (frame_t - 1))
+                                             / static_cast<float>(2 * tau) :
                                          0.0f;
                             break;
                         case style::window:
-                            lambda = t_and_on.first + parameter > frame_t - 1 ? 1.0f : 0.0f;
+                            lambda = t_and_on.first + tau > frame_t - 1 ? 1.0f : 0.0f;
                             break;
                     }
                 }
@@ -113,10 +107,10 @@ class frame {
         const std::vector<uint64_t>& delta_ts,
         uint16_t x_offset,
         uint16_t y_offset,
-        uint64_t white,
-        bool white_auto,
         uint64_t black,
         bool black_auto,
+        uint64_t white,
+        bool white_auto,
         float discard_ratio,
         color atis_color) {
         auto minimum = 0.5f;
@@ -180,6 +174,84 @@ class frame {
         }
     }
 
+    virtual void paste_timecode(uint16_t left, uint16_t top, uint16_t font_size, uint64_t frame_t) {
+        if (!_fontinfo) {
+            _fontinfo = std::unique_ptr<stbtt_fontinfo>(new stbtt_fontinfo);
+            if (stbtt_InitFont(_fontinfo.get(), monaco_bytes.data(), 0) == 0) {
+                throw std::runtime_error("loading the font failed");
+            }
+        }
+        int32_t ascent = 0;
+        int32_t descent = 0;
+        int32_t line_gap = 0;
+        stbtt_GetFontVMetrics(_fontinfo.get(), &ascent, &descent, &line_gap);
+        const auto scale = stbtt_ScaleForPixelHeight(_fontinfo.get(), font_size);
+        const auto timecode_string = timecode(frame_t).to_timecode_string();
+        int32_t width = 0;
+        int32_t height = 0;
+        for (std::size_t index = 0; index < timecode_string.size(); ++index) {
+            int32_t advance_width = 0;
+            int32_t left_side_bearing = 0;
+            stbtt_GetCodepointHMetrics(_fontinfo.get(), timecode_string[index], &advance_width, &left_side_bearing);
+            int32_t top = 0;
+            int32_t left = 0;
+            int32_t bottom = 0;
+            int32_t right = 0;
+            stbtt_GetCodepointBitmapBox(
+                _fontinfo.get(), timecode_string[index], scale, scale, &left, &top, &right, &bottom);
+            height = std::max(height, static_cast<int32_t>(std::roundf(ascent * scale)) + bottom);
+            width += std::roundf(advance_width * scale);
+            if (index < timecode_string.size() - 1) {
+                width += std::roundf(
+                    stbtt_GetCodepointKernAdvance(_fontinfo.get(), timecode_string[index], timecode_string[index + 1])
+                    * scale);
+            }
+        }
+        std::vector<uint8_t> bitmap(width * height);
+        int32_t x = 0;
+        for (std::size_t index = 0; index < timecode_string.size(); ++index) {
+            int32_t advance_width = 0;
+            int32_t left_side_bearing = 0;
+            stbtt_GetCodepointHMetrics(_fontinfo.get(), timecode_string[index], &advance_width, &left_side_bearing);
+            int32_t top = 0;
+            int32_t left = 0;
+            int32_t bottom = 0;
+            int32_t right = 0;
+            stbtt_GetCodepointBitmapBox(
+                _fontinfo.get(), timecode_string[index], scale, scale, &left, &top, &right, &bottom);
+            stbtt_MakeCodepointBitmap(
+                _fontinfo.get(),
+                bitmap.data() + x + static_cast<int32_t>(std::roundf(left_side_bearing * scale))
+                    + (static_cast<int32_t>(std::roundf(ascent * scale)) + top) * width,
+                right - left,
+                bottom - top,
+                width,
+                scale,
+                scale,
+                timecode_string[index]);
+            if (index < timecode_string.size() - 1) {
+                x += static_cast<int32_t>(std::roundf(advance_width * scale))
+                     + static_cast<int32_t>(std::roundf(
+                         stbtt_GetCodepointKernAdvance(
+                             _fontinfo.get(), timecode_string[index], timecode_string[index + 1])
+                         * scale));
+            }
+        }
+        for (int32_t y = 0; y < height; ++y) {
+            for (int32_t x = 0; x < width; ++x) {
+                const auto frame_x = x + left;
+                const auto frame_y = y + top;
+                if (frame_x >= 0 && frame_x < _width && frame_y >= 0 && frame_y < _height) {
+                    const auto index = (frame_x + frame_y * _width) * 3;
+                    const auto alpha = bitmap[x + y * width];
+                    _bytes[index] = _bytes[index] * (255 - alpha) / 255 + alpha;
+                    _bytes[index + 1] = _bytes[index + 1] * (255 - alpha) / 255 + alpha;
+                    _bytes[index + 2] = _bytes[index + 2] * (255 - alpha) / 255 + alpha;
+                }
+            }
+        }
+    }
+
     virtual void write(const std::string& output_directory, uint8_t digits, uint64_t frame_index) const {
         if (output_directory.empty()) {
             std::cout.write(reinterpret_cast<const char*>(_bytes.data()), _bytes.size());
@@ -200,6 +272,7 @@ class frame {
     const uint16_t _width;
     const uint16_t _height;
     std::vector<uint8_t> _bytes;
+    std::unique_ptr<stbtt_fontinfo> _fontinfo;
 };
 
 int main(int argc, char* argv[]) {
@@ -213,40 +286,45 @@ int main(int argc, char* argv[]) {
          "                                               defaults to standard input",
          "    -o directory, --output directory       sets the path to the output directory",
          "                                               defaults to standard output",
+         "    -b timestamp, --begin timestamp        ignores events before this timestamp (timecode)",
+         "                                               defaults to 00:00:00",
+         "    -e timestamp, --end timestamp          ignores events after this timestamp (timecode)",
+         "                                               defaults to the end of the recording",
          "    -f frametime, --frametime frametime    sets the time between two frames (timecode)",
          "                                               defaults to 00:00:00.02",
          "    -s style, --style style                selects the decay function",
          "                                               one of exponential (default), linear, window",
-         "    -p parameter, --parameter parameter    sets the function parameter (timecode)",
+         "    -t tau, --tau tau                      sets the decay function parameter (timecode)",
          "                                               defaults to 00:00:00.20",
-         "                                               if style is `exponential`, the decay is set to parameter",
-         "                                               if style is `linear`, the decay is set to parameter * 2",
-         "                                               if style is `window`, the time window is set to parameter",
-         "    -a color, --oncolor color              sets the color for ON events",
+         "                                               if style is `exponential`, the decay is set to tau",
+         "                                               if style is `linear`, the decay is set to tau * 2",
+         "                                               if style is `window`, the time window is set to tau",
+         "    -j color, --oncolor color              sets the color for ON events",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #f4c20d",
-         "    -b color, --offcolor color             sets the color for OFF events",
+         "    -k color, --offcolor color             sets the color for OFF events",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #1e88e5",
-         "    -c color, --idlecolor color            sets the background color",
+         "    -l color, --idlecolor color            sets the background color",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #292929",
+         "    -a, --add-timecode                     adds a timecode overlay",
          "    -d digits, --digits digits             sets the number of digits in output filenames",
          "                                               ignored if the output is not a directory",
          "                                               defaults to 6",
-         "    -e ratio, --discard-ratio ratio        sets the ratio of pixels discarded for tone mapping",
+         "    -r ratio, --discard-ratio ratio        sets the ratio of pixels discarded for tone mapping",
          "                                               ignored if the stream type is not atis",
-         "                                               used for white (resp. black) if --white (resp. --black) is "
-         "not set",
+         "                                               used for black (resp. white) if --black (resp. --white)",
+         "                                               is not set",
          "                                               defaults to 0.01",
+         "    -v duration, --black duration          sets the black integration duration for tone mapping (timecode)",
+         "                                               defaults to automatic discard calculation",
          "    -w duration, --white duration          sets the white integration duration for tone mapping (timecode)",
          "                                               defaults to automatic discard calculation",
-         "    -x duration, --black duration          sets the black integration duration for tone mapping (timecode)",
-         "                                               defaults to automatic discard calculation",
-         "    -j color, --atiscolor color            sets the background color for ATIS exposure measurements",
+         "    -x color, --atiscolor color            sets the background color for ATIS exposure measurements",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #000000",
@@ -257,20 +335,41 @@ int main(int argc, char* argv[]) {
         {
             {"input", {"i"}},
             {"output", {"o"}},
+            {"begin", {"b"}},
+            {"end", {"e"}},
             {"frametime", {"f"}},
             {"style", {"s"}},
-            {"parameter", {"p"}},
-            {"oncolor", {"a"}},
-            {"offcolor", {"b"}},
-            {"idlecolor", {"c"}},
+            {"tau", {"t"}},
+            {"oncolor", {"j"}},
+            {"offcolor", {"k"}},
+            {"idlecolor", {"l"}},
             {"digits", {"d"}},
-            {"discard-ratio", {"e"}},
+            {"discard-ratio", {"r"}},
+            {"black", {"v"}},
             {"white", {"w"}},
-            {"black", {"x"}},
-            {"atiscolor", {"j"}},
+            {"atiscolor", {"x"}},
         },
-        {},
+        {
+            {"add-timecode", {"a"}},
+        },
         [](pontella::command command) {
+            uint64_t begin_t = 0;
+            {
+                const auto name_and_argument = command.options.find("begin");
+                if (name_and_argument != command.options.end()) {
+                    begin_t = timecode(name_and_argument->second).value();
+                }
+            }
+            auto end_t = std::numeric_limits<uint64_t>::max();
+            {
+                const auto name_and_argument = command.options.find("end");
+                if (name_and_argument != command.options.end()) {
+                    end_t = timecode(name_and_argument->second).value();
+                    if (end_t <= begin_t) {
+                        throw std::runtime_error("end must be strictly larger than begin");
+                    }
+                }
+            }
             uint64_t frametime = 20000;
             {
                 const auto name_and_argument = command.options.find("frametime");
@@ -302,6 +401,7 @@ int main(int argc, char* argv[]) {
                     idle_color = color(name_and_argument->second);
                 }
             }
+            const auto add_timecode = command.flags.find("add-timecode") != command.flags.end();
             auto decay_style = style::exponential;
             {
                 const auto name_and_argument = command.options.find("style");
@@ -315,13 +415,13 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-            uint64_t parameter = 200000;
+            uint64_t tau = 200000;
             {
-                const auto name_and_argument = command.options.find("parameter");
+                const auto name_and_argument = command.options.find("tau");
                 if (name_and_argument != command.options.end()) {
-                    parameter = timecode(name_and_argument->second).value();
-                    if (parameter == 0) {
-                        throw std::runtime_error("the parameter must be larger than 0");
+                    tau = timecode(name_and_argument->second).value();
+                    if (tau == 0) {
+                        throw std::runtime_error("tau must be larger than 0");
                     }
                 }
             }
@@ -363,6 +463,9 @@ int main(int argc, char* argv[]) {
                     auto first_t = std::numeric_limits<uint64_t>::max();
                     frame output_frame(header.width, header.height);
                     sepia::join_observable<sepia::type::dvs>(std::move(input), header, [&](sepia::dvs_event event) {
+                        if (event.t < begin_t || event.t >= end_t) {
+                            return;
+                        }
                         if (first_t == std::numeric_limits<uint64_t>::max()) {
                             first_t = event.t;
                         }
@@ -375,11 +478,14 @@ int main(int argc, char* argv[]) {
                                 0,
                                 0,
                                 decay_style,
-                                parameter,
+                                tau,
                                 on_color,
                                 off_color,
                                 idle_color,
                                 frame_t);
+                            if (add_timecode) {
+                                output_frame.paste_timecode(font_left, font_top, font_size, frame_t);
+                            }
                             output_frame.write(output_directory, digits, frame_index);
                             ++frame_index;
                         }
@@ -389,18 +495,6 @@ int main(int argc, char* argv[]) {
                     break;
                 }
                 case sepia::type::atis: {
-                    uint64_t white = 0;
-                    auto white_auto = true;
-                    {
-                        const auto name_and_argument = command.options.find("white");
-                        if (name_and_argument != command.options.end()) {
-                            white = timecode(name_and_argument->second).value();
-                            white_auto = false;
-                            if (white == 0) {
-                                throw std::runtime_error("white must be larger than 0");
-                            }
-                        }
-                    }
                     uint64_t black = 0;
                     auto black_auto = true;
                     {
@@ -411,13 +505,25 @@ int main(int argc, char* argv[]) {
                             if (black == 0) {
                                 throw std::runtime_error("black must be larger than 0");
                             }
-                            if (!white_auto && white > black) {
+                        }
+                    }
+                    uint64_t white = 0;
+                    auto white_auto = true;
+                    {
+                        const auto name_and_argument = command.options.find("white");
+                        if (name_and_argument != command.options.end()) {
+                            white = timecode(name_and_argument->second).value();
+                            white_auto = false;
+                            if (white == 0) {
+                                throw std::runtime_error("white must be larger than 0");
+                            }
+                            if (!black_auto && white > black) {
                                 throw std::runtime_error("white must be smaller than or equal to black");
                             }
                         }
                     }
                     auto discard_ratio = 0.01f;
-                    if (white_auto || black_auto) {
+                    if (black_auto || white_auto) {
                         const auto name_and_argument = command.options.find("discard-ratio");
                         if (name_and_argument != command.options.end()) {
                             discard_ratio = std::stof(name_and_argument->second);
@@ -444,6 +550,9 @@ int main(int argc, char* argv[]) {
                         header,
                         tarsier::make_replicate<sepia::atis_event>(
                             [&](sepia::atis_event event) {
+                                if (event.t < begin_t || event.t >= end_t) {
+                                    return;
+                                }
                                 if (first_t == std::numeric_limits<uint64_t>::max()) {
                                     first_t = event.t;
                                 }
@@ -456,7 +565,7 @@ int main(int argc, char* argv[]) {
                                         0,
                                         0,
                                         decay_style,
-                                        parameter,
+                                        tau,
                                         on_color,
                                         off_color,
                                         idle_color,
@@ -467,12 +576,15 @@ int main(int argc, char* argv[]) {
                                         delta_ts,
                                         header.width,
                                         0,
-                                        white,
-                                        white_auto,
                                         black,
                                         black_auto,
+                                        white,
+                                        white_auto,
                                         discard_ratio,
                                         atis_color);
+                                    if (add_timecode) {
+                                        output_frame.paste_timecode(font_left, font_top, font_size, frame_t);
+                                    }
                                     output_frame.write(output_directory, digits, frame_index);
                                     ++frame_index;
                                 }

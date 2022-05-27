@@ -46,7 +46,7 @@ class timecode {
     timecode& operator=(timecode&&) = default;
     virtual ~timecode() {}
 
-    /// to_string converts the timecode to a human-reable string.
+    /// to_string converts the timecode to a human-friendly string.
     virtual std::string to_string() const {
         const auto hours = _value / 3600000000ull;
         auto remainder = _value - hours * 3600000000ull;
@@ -58,6 +58,21 @@ class timecode {
         stream.fill('0');
         stream << _value << " µs (" << std::setw(2) << hours << ':' << std::setw(2) << minutes << ':' << std::setw(2)
                << seconds << '.' << std::setw(6) << remainder << ")";
+        return stream.str();
+    }
+
+    /// to_timecode_string converts the timecode to a human-friendly string without microseconds.
+    virtual std::string to_timecode_string() const {
+        const auto hours = _value / 3600000000ull;
+        auto remainder = _value - hours * 3600000000ull;
+        const auto minutes = remainder / 60000000ull;
+        remainder -= minutes * 60000000ull;
+        const auto seconds = remainder / 1000000ull;
+        remainder -= seconds * 1000000ull;
+        std::stringstream stream;
+        stream.fill('0');
+        stream << std::setw(2) << hours << ':' << std::setw(2) << minutes << ':' << std::setw(2) << seconds << '.'
+               << std::setw(6) << remainder;
         return stream.str();
     }
 

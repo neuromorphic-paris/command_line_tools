@@ -93,7 +93,7 @@ solution 'utilities'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/es_to_frames.cpp'}
+        files {'source/font.hpp', 'source/es_to_frames.cpp'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}

@@ -125,9 +125,11 @@ int main(int argc, char* argv[]) {
                                 (dvs_event.t - begin_t) * temporal_scale,
                             };
                             if (dvs_event.is_increase) {
-                                output_on->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_on->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             } else {
-                                output_off->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_off->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             }
                         }
                     });
@@ -139,14 +141,16 @@ int main(int argc, char* argv[]) {
                                 return;
                             }
                             std::array<double, 3> vertex{
-                                (atis_event.x - header.width / 2.0)  * spatial_scale,
+                                (atis_event.x - header.width / 2.0) * spatial_scale,
                                 (atis_event.y - header.height / 2.0) * spatial_scale,
                                 (atis_event.t - begin_t) * temporal_scale,
                             };
                             if (atis_event.polarity) {
-                                output_on->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_on->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             } else {
-                                output_off->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_off->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             }
                         }
                     });
@@ -163,9 +167,11 @@ int main(int argc, char* argv[]) {
                                 (color_event.t - begin_t) * temporal_scale,
                             };
                             if (color_event.r + color_event.b + color_event.g >= 128 * 3) {
-                                output_on->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_on->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             } else {
-                                output_off->write(reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
+                                output_off->write(
+                                    reinterpret_cast<char*>(vertex.data()), vertex.size() * sizeof(double));
                             }
                         }
                     });
