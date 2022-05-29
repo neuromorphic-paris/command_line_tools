@@ -7,6 +7,10 @@ constexpr uint16_t x_offset = 50;
 constexpr uint16_t y_offset = 50;
 constexpr uint16_t font_size = 20;
 constexpr std::array<float, 2> curves_strokes{1.0f, 2.0f};
+constexpr float font_baseline_ratio = 0.3f;
+constexpr float font_width_ratio = 0.5f;
+constexpr float font_exponent_ratio = 0.8f;
+constexpr float font_exponent_baseline_ratio = 0.5f;
 const std::array<std::string, 2> curves_colors{"#4285F4", "#c4d7f5"};
 const std::string axis_color = "#000000";
 const std::string ticks_color = "#000000";
@@ -186,8 +190,8 @@ int main(int argc, char* argv[]) {
                 type_to_minmaxes[index].resize(
                     width - 1 - x_offset,
                     {std::numeric_limits<double>::infinity(), -std::numeric_limits<double>::infinity()});
-                const auto pixel_window =
-                    static_cast<uint64_t>(std::round(static_cast<double>(first_and_last_t.second - first_and_last_t.first) / (width - 1 - x_offset)));
+                const auto pixel_window = static_cast<uint64_t>(std::round(
+                    static_cast<double>(first_and_last_t.second - first_and_last_t.first) / (width - 1 - x_offset)));
                 compute_event_rate(
                     header, sepia::filename_to_ifstream(command.arguments[0]), tau, [&](event_rate event) {
                         if (event.value > 0.0) {
@@ -195,7 +199,8 @@ int main(int argc, char* argv[]) {
                         }
                         maximum = std::max(maximum, event.value);
                         const auto pixel_index = std::min(
-                            static_cast<std::size_t>((event.t - first_and_last_t.first) / pixel_window), width - 1 - x_offset - 1);
+                            static_cast<std::size_t>((event.t - first_and_last_t.first) / pixel_window),
+                            width - 1 - x_offset - 1);
                         type_to_minmaxes[index][pixel_index].first =
                             std::min(type_to_minmaxes[index][pixel_index].first, event.value);
                         type_to_minmaxes[index][pixel_index].second =
@@ -216,12 +221,11 @@ int main(int argc, char* argv[]) {
                            / (log_maximum - log_minimum) * (std::log10(value) - log_maximum)
                        + font_size;
             };
-            for (auto& minmaxes: type_to_minmaxes) {
+            for (auto& minmaxes : type_to_minmaxes) {
                 for (std::size_t pixel_index = 0; pixel_index < minmaxes.size(); ++pixel_index) {
                     auto& minmax = minmaxes[pixel_index];
                     if (minmax.first == std::numeric_limits<double>::infinity()
                         || minmax.second == -std::numeric_limits<double>::infinity()) {
-
                         if (pixel_index == 0) {
                             minmax.first = minimum;
                             minmax.second = minimum;
@@ -240,26 +244,30 @@ int main(int argc, char* argv[]) {
             *output << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " << width << " "
                     << height << "\">\n";
             for (uint32_t index = log_minimum + 1; index < log_maximum + 1; ++index) {
-                *output << "<path fill=\"transparent\" stroke=\"" << main_grid_color << "\" stroke-width=\"1\" d=\"M"
+                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color << "\" stroke-width=\"1\" d=\"M"
                         << x_offset << "," << value_to_y(std::pow(10, index)) << " L" << (width - 1) << ","
                         << value_to_y(std::pow(10, index)) << "\" />\n";
             }
             for (uint32_t index = log_minimum; index < log_maximum + 1; ++index) {
-                *output << "<text text-anchor=\"end\" x=\"" << x_offset << "\" y=\""
-                        << (value_to_y(std::pow(10, index)) + font_size / 3.0) << "\" font-size=\"" << font_size
-                        << "px\" color=\"" << ticks_color
-                        << "\">10<tspan baseline-shift=\"super\" font-size=\"smaller\">" << index
-                        << "&#160;&#160;</tspan></text>\n";
+                const auto digits = std::to_string(index).size();
+                *output << "<text text-anchor=\"end\" x=\""
+                        << x_offset - std::round((digits * font_exponent_ratio + 1) * font_size * font_width_ratio) << "\" y=\""
+                        << (value_to_y(std::pow(10, index)) + font_size * font_baseline_ratio) << "\" font-size=\"" << font_size
+                        << "px\" color=\"" << ticks_color << "\">10</text>\n";
+                *output << "<text text-anchor=\"end\" x=\"" << x_offset - std::round(font_size * font_width_ratio)
+                        << "\" y=\"" << (value_to_y(std::pow(10, index)) + font_size * (font_baseline_ratio - font_exponent_baseline_ratio)) << "\" font-size=\""
+                        << std::round(font_size * font_exponent_ratio) << "px\" color=\"" << ticks_color << "\">" << index
+                        << "</text>\n";
             }
             *output << "<text text-anchor=\"begin\" x=\"" << x_offset << "\" y=\""
-                    << (height - 1 - y_offset + font_size * 1.3) << "\" font-size=\"" << font_size << "px\" color=\""
+                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size << "px\" color=\""
                     << ticks_color << "\">" << timecode(first_and_last_t.first).to_timecode_string() << "</text>\n";
             *output << "<text text-anchor=\"end\" x=\"" << (width - 1) << "\" y=\""
-                    << (height - 1 - y_offset + font_size * 1.3) << "\" font-size=\"" << font_size << "px\" color=\""
+                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size << "px\" color=\""
                     << ticks_color << "\">" << timecode(first_and_last_t.second).to_timecode_string() << "</text>\n";
             for (uint32_t index = log_minimum; index < log_maximum; ++index) {
                 for (uint32_t multiplier = 2; multiplier < 10; ++multiplier) {
-                    *output << "<path fill=\"transparent\" stroke=\"" << secondary_grid_color
+                    *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color
                             << "\"  stroke-width=\"1\" d=\"M" << x_offset << ","
                             << value_to_y(std::pow(10, index) * multiplier) << " L" << (width - 1) << ","
                             << value_to_y(std::pow(10, index) * multiplier) << "\" />\n";
@@ -280,7 +288,7 @@ int main(int argc, char* argv[]) {
                 }
                 *output << "Z\" />\n";
             }
-            *output << "<path fill=\"transparent\" stroke=\"" << axis_color << "\" stroke-width=\"2\" d=\"M" << x_offset
+            *output << "<path fill=\"#00000000\" stroke=\"" << axis_color << "\" stroke-width=\"2\" d=\"M" << x_offset
                     << ",0 L" << x_offset << "," << (height - y_offset) << " L" << (width - 1) << ","
                     << (height - 1 - y_offset) << "\" />\n";
             *output << "</svg>";
