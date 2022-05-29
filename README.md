@@ -205,7 +205,7 @@ Available options:
 
 ### event_rate
 
-event_rate plots the event rate.
+event_rate plots the number of events per second (slidding time window).
 
 ```sh
 ./event_rate [options] /path/to/input.es /path/to/output.svg
@@ -214,7 +214,7 @@ event_rate plots the event rate.
 Available options:
 
 -   `-l tau`, `--long tau` sets the long (foreground curve) time window (timecode, defaults to `00:00:01`)
--   `-s tau`, `--short tau` sets the short (foreground curve) time window (timecode, defaults to `00:00:00.010`)
+-   `-s tau`, `--short tau` sets the short (background curve) time window (timecode, defaults to `00:00:00.010`)
 -   `-w length`, `--width length` sets the output width in pixels (defaults to `1280`)
 -   `-h length`, `--height length` sets the output height in pixels (defaults to `720`)
 -   `-h`, `--help` shows the help message

@@ -117,7 +117,7 @@ void compute_event_rate(
 
 int main(int argc, char* argv[]) {
     return pontella::main(
-        {"event_rate plots the event rate",
+        {"event_rate plots the number of events per second (slidding time window).",
          "Syntax: ./event_rate [options] /path/to/input.es /path/to/output.svg",
          "Available options:",
          "    -l tau, --long tau            sets the long (foreground curve) time window (timecode)",
