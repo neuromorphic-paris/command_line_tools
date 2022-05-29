@@ -2,6 +2,31 @@
 
 Command-line tools bundles command-line applications to manipulate event files.
 
+- [install](#install)
+  - [clone](#clone)
+  - [dependencies](#dependencies)
+    - [Debian / Ubuntu](#debian--ubuntu)
+    - [macOS](#macos)
+    - [Windows](#windows)
+  - [compilation](#compilation)
+  - [documentation](#documentation)
+    - [timecode](#timecode)
+    - [cut](#cut)
+    - [dat_to_es](#dat_to_es)
+    - [es_to_csv](#es_to_csv)
+    - [es_to_frames](#es_to_frames)
+    - [es_to_ply](#es_to_ply)
+    - [event_rate](#event_rate)
+    - [rainmaker](#rainmaker)
+    - [size](#size)
+    - [statistics](#statistics)
+- [contribute](#contribute)
+  - [development dependencies](#development-dependencies)
+    - [Debian / Ubuntu](#debian--ubuntu-1)
+    - [macOS](#macos-1)
+  - [test](#test)
+- [license](#license)
+
 # install
 
 ## clone
@@ -52,7 +77,7 @@ copy "%userprofile%\Downloads\premake-4.4-beta5-windows\premake4.exe" "%userprof
 
 Run the following commands from the _command_line_tools_ directory to compile the applications:
 
-```
+```sh
 premake4 gmake
 cd build
 make
@@ -77,7 +102,7 @@ Time parameters in command-line applications (timestamps, durations, decays...) 
 
 cut generates a new Event Stream file with only events from the given time range.
 
-```
+```sh
 ./cut [options] /path/to/input.es /path/to/output.es begin duration
 ```
 
@@ -91,7 +116,7 @@ Available options:
 
 dat_to_es converts a TD file (and an optional APS file) to an Event Stream file.
 
-```
+```sh
 ./dat_to_es [options] /path/to/input_td.dat /path/to/input_aps.dat /path/to/output.es
 ```
 
@@ -105,7 +130,7 @@ Available options:
 
 es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and Matlab):
 
-```
+```sh
 ./es_to_csv [options] /path/to/input.es /path/to/output.csv
 ```
 
@@ -117,7 +142,7 @@ Available options:
 
 es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists in raw rgb24 frames.
 
-```
+```sh
 ./es_to_frames [options]
 ```
 
@@ -127,9 +152,9 @@ Available options:
 -   `-o directory`, `--output directory` sets the path to the output directory (defaults to standard output)
 -   `-b timestamp`, `--begin timestamp` ignores events before this timestamp (timecode, defaults to `00:00:00`),
 -   `-e timestamp`, `--end timestamp` ignores events after this timestamp (timecode, defaults to the end of the recording),
--   `-f frametime`, `--frametime frametime` sets the time between two frames (timecode, defaults to `00:00:00.02`)
+-   `-f frametime`, `--frametime frametime` sets the time between two frames (timecode, defaults to `00:00:00.020`)
 -   `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
--   `-t tau`, `--tau tau` sets the decay function parameter (timecode, defaults to `00:00:00.10`)
+-   `-t tau`, `--tau tau` sets the decay function parameter (timecode, defaults to `00:00:00.200`)
     -   if `style` is `exponential`, the decay is set to `parameter`
     -   if `style` is `linear`, the decay is set to `parameter / 2`
     -   if `style` is `window`, the time window is set to `parameter`
@@ -142,50 +167,80 @@ Available options:
 -   `-v duration`, `--black duration` sets the black integration duration for tone mapping (timecode, defaults to automatic discard calculation)
 -   `-w duration`, `--white duration` sets the white integration duration for tone mapping (timecode, defaults to automatic discard calculation)
 -   `-x color`, `--atiscolor color` sets the background color for ATIS exposure measurements (color must be formatted as #hhhhhh where h is an hexadecimal digit, defaults to `#000000`)
-
 -   `-h`, `--help` shows the help message
 
-You can pipe the generated ppm frames into [FFmpeg](https://www.ffmpeg.org) to generate a video:
+Once can use the script _render.py_ to directly generate an MP4 video instead of frames. _es_to_frames_ must be compiled before using _render.py_, and FFmpeg (https://www.ffmpeg.org) must be installed and on the system's path. Run `python3 render.py --help` for details.
 
-```
+The commands below show how to manually pipe the generated frames into FFmpeg:
+
+```sh
 cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv420p /path/to/output.mp4
 ```
 
 You may need to change the width, height and framerate of the video depending on the `es_to_frames` options and the Event Stream dimensions. You can use `./size /path/to/input.es` to read the dimensions:
 
-```
+```sh
 cat /path/to/input.es | ./es_to_frames --frametime 10000 | ffmpeg -f rawvideo -s $(./size /path/to/input.es) -framerate 100 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv420p /path/to/output.mp4
 ```
 
 You can also use a lossless encoding format:
 
-```
-cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv420p /path/to/output.mp4
+```sh
+cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
 ```
 
-The script _render.py_ invokes es_to_frames and ffmpeg. Run `python3 render.py --help` for details.
+### es_to_ply
+
+es_to_ply converts an Event Stream file to a PLY file (Polygon File Format, compatible with Blender).
+
+```sh
+./es_to_ply [options] /path/to/input.es /path/to/output_on.ply /path/to/output_off.ply
+```
+
+Available options:
+
+-   `-t timestamp`, `--timestamp timestamp` sets the initial timestamp for the point cloud (timecode, defaults to `00:00:00`)
+-   `-d duration`, `--duration duration` sets the duration for the point cloud (timecode, defaults to `00:00:01`)
+-   `-h`, `--help` shows the help message
+
+### event_rate
+
+event_rate plots the event rate.
+
+```sh
+./event_rate [options] /path/to/input.es /path/to/output.svg
+```
+
+Available options:
+
+-   `-l tau`, `--long tau` sets the long (foreground curve) time window (timecode, defaults to `00:00:01`)
+-   `-s tau`, `--short tau` sets the short (foreground curve) time window (timecode, defaults to `00:00:00.010`)
+-   `-w length`, `--width length` sets the output width in pixels (defaults to `1280`)
+-   `-h length`, `--height length` sets the output height in pixels (defaults to `720`)
+-   `-h`, `--help` shows the help message
 
 ### rainmaker
 
 rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file.
 
-```
+```sh
 ./rainmaker [options] /path/to/input.es /path/to/output.html
 ```
 
 Available options:
 
--   `-t [timestamp]`, `--timestamp [timestamp]` sets the initial timestamp for the point cloud (defaults to `00:00:00`)
--   `-d [duration]`, `--duration [duration]` sets the duration (in microseconds) for the point cloud (defaults to `00:00:01`)
--   `-r [ratio]`, `--ratio [ratio]` sets the discard ratio for logarithmic tone mapping (default to `0.05`, ignored if the file does not contain ATIS events)
--   `-f [duration]`, `--frametime [duration]` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
+-   `-t timestamp`, `--timestamp timestamp` sets the initial timestamp for the point cloud (timecode, defaults to `00:00:00`)
+-   `-d duration`, `--duration duration` sets the duration for the point cloud (timecode, defaults to `00:00:01`)
+-   `-r ratio`, `--ratio ratio` sets the discard ratio for logarithmic tone mapping (default to `0.05`, ignored if the file does not contain ATIS events)
+-   `-f duration`, `--frametime duration` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
+-   `-a`, `--dark` renders in dark mode
 -   `-h`, `--help` shows the help message
 
 ### size
 
 size prints the spatial dimensions of the given Event Stream file.
 
-```
+```sh
 ./size /path/to/input.es
 ```
 
@@ -197,7 +252,7 @@ Available options:
 
 statistics retrieves the event stream's properties and outputs them in JSON format.
 
-```
+```sh
 ./statistics [options] /path/to/input.es
 ```
 

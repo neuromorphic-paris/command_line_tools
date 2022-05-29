@@ -25,23 +25,23 @@ int main(int argc, char* argv[]) {
         {"rainmaker generates a standalone HTML file containing a 3D representation of events",
          "Syntax: ./rainmaker [options] /path/to/input.es /path/to/output.html",
          "Available options:",
-         "    -t [timestamp], --timestamp [timestamp]    sets the initial timestamp (timecode) for the point cloud",
-         "                                                   defaults to 00:00:00",
-         "    -d [duration], --duration [duration]       sets the duration (timecode) for the point cloud",
-         "                                                   defaults to 00:00:01",
-         "    -r [ratio], --ratio [ratio]                sets the discard ratio for logarithmic tone mapping",
-         "                                                   defaults to 0.05",
-         "                                                   ignored if the file does not contain ATIS events",
-         "    -f [duration], --frametime [duration]      sets the frame duration",
-         "                                                   defaults to 'auto'",
-         "                                                   'auto' calculates the time between two frames so that",
-         "                                                   there is the same amount of raw data in events",
-         "                                                   and frames,",
-         "                                                   a duration in microseconds can be provided instead,",
-         "                                                   'none' disables the frames,",
-         "                                                   ignored if the file contains DVS events",
-         "    -a, --dark                                 render in dark mode",
-         "    -h, --help                                 shows this help message"},
+         "    -t timestamp, --timestamp timestamp    sets the initial timestamp for the point cloud (timecode)",
+         "                                               defaults to 00:00:00",
+         "    -d duration, --duration duration       sets the duration for the point cloud (timecode)",
+         "                                               defaults to 00:00:01",
+         "    -r ratio, --ratio ratio                sets the discard ratio for logarithmic tone mapping",
+         "                                               defaults to 0.05",
+         "                                               ignored if the file does not contain ATIS events",
+         "    -f duration, --frametime duration      sets the frame duration",
+         "                                               defaults to 'auto'",
+         "                                               'auto' calculates the time between two frames so that",
+         "                                               there is the same amount of raw data in events",
+         "                                               and frames,",
+         "                                               a duration in microseconds can be provided instead,",
+         "                                               'none' disables the frames,",
+         "                                               ignored if the file contains DVS events",
+         "    -a, --dark                             renders in dark mode",
+         "    -h, --help                             shows this help message"},
         argc,
         argv,
         2,
@@ -124,7 +124,7 @@ int main(int argc, char* argv[]) {
                             ratio = std::stod(name_and_argument->second);
                         }
                         if (ratio < 0 || ratio >= 1) {
-                            throw std::runtime_error("[ratio] must be a real number in the range [0, 1[");
+                            throw std::runtime_error("ratio must be a real number in the range [0, 1[");
                         }
                     }
                     std::vector<exposure_measurement> exposure_measurements;

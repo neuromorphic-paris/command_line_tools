@@ -114,7 +114,6 @@ parser.add_argument(
 args = parser.parse_args()
 
 input = pathlib.Path(args.input).resolve()
-
 if args.output is None:
     range_string = ""
     if args.begin > 0 or args.end is not None:
@@ -139,10 +138,10 @@ if args.output is None:
     )
 else:
     output = pathlib.Path(args.output).resolve()
-
+if input == output:
+    raise Exception("input and output must be different files")
 if not pathlib.Path(args.input).exists():
     sys.stderr.write(f"{input} does not exist")
-
 if not pathlib.Path(args.input).is_file():
     sys.stderr.write(f"{input} is not a file")
 

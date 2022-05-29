@@ -4,14 +4,14 @@
 
 int main(int argc, char* argv[]) {
     return pontella::main(
-        {"es_to_ply converts an Event Stream file into a ply file (compatible with Blender)\n"
+        {"es_to_ply converts an Event Stream file to a PLY file (Polygon File Format, compatible with Blender)\n"
          "Syntax: ./es_to_ply [options] /path/to/input.es /path/to/output_on.ply /path/to/output_off.ply\n",
          "Available options:",
-         "    -t [timestamp], --timestamp [timestamp]    sets the initial timestamp (timecode) for the point cloud",
-         "                                                   defaults to 00:00:00",
-         "    -d [duration], --duration [duration]       sets the duration (timecode) for the point cloud",
-         "                                                   defaults to 00:00:01",
-         "    -h, --help                                 shows this help message"},
+         "    -t timestamp, --timestamp timestamp    sets the initial timestamp for the point cloud (timecode)",
+         "                                               defaults to 00:00:00",
+         "    -d duration, --duration duration       sets the duration for the point cloud (timecode)",
+         "                                               defaults to 00:00:01",
+         "    -h, --help                             shows this help message"},
         argc,
         argv,
         3,
