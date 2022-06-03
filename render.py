@@ -1,11 +1,11 @@
 import argparse
 import atexit
-import os
 import pathlib
 import re
 import subprocess
 import sys
 
+dirname = pathlib.Path(__file__).resolve().parent
 timecode_pattern = re.compile(r"^(\d+):(\d+):(\d+)(?:\.(\d+))?$")
 
 
@@ -30,8 +30,6 @@ def timecode(value: str) -> int:
             result += round(float("0." + fraction_string) * 1e6)
     return result
 
-
-dirname = pathlib.Path(__file__).resolve().parent
 
 parser = argparse.ArgumentParser(
     description="Generate a frame-based video from an .es file, using es_to_frames and ffmpeg",
@@ -105,12 +103,6 @@ parser.add_argument(
     default="ffmpeg",
     help="FFmpeg executable",
 )
-parser.add_argument(
-    "--av1",
-    "-u",
-    action="store_true",
-    help="Use AV1 instead of H.264",
-)
 args = parser.parse_args()
 
 input = pathlib.Path(args.input).resolve()
@@ -182,37 +174,34 @@ es_to_frames = subprocess.Popen(
 )
 assert es_to_frames.stdout is not None
 
-ffmpeg_arguments = [
-    args.ffmpeg,
-    "-hide_banner",
-    "-loglevel",
-    "warning",
-    "-stats",
-    "-f",
-    "rawvideo",
-    "-s",
-    f"{width}x{height}",
-    "-framerate",
-    "50",
-    "-pix_fmt",
-    "rgb24",
-    "-i",
-    "-",
-    "-c:v",
-]
-if args.av1:
-    ffmpeg_arguments += [
-        "librav1e",
-        "-rav1e-params",
-        f"speed=3:threads={os.cpu_count()}",
-    ]
-else:
-    ffmpeg_arguments += ["libx264", "-pix_fmt", "yuv420p", "-crf", "18"]
-ffmpeg_arguments += [
-    "-y",
-    str(output),
-]
-ffmpeg = subprocess.Popen(ffmpeg_arguments, stdin=subprocess.PIPE)
+ffmpeg = subprocess.Popen(
+    [
+        args.ffmpeg,
+        "-hide_banner",
+        "-loglevel",
+        "warning",
+        "-stats",
+        "-f",
+        "rawvideo",
+        "-s",
+        f"{width}x{height}",
+        "-framerate",
+        "50",
+        "-pix_fmt",
+        "rgb24",
+        "-i",
+        "-",
+        "-c:v",
+        "libx264",
+        "-pix_fmt",
+        "yuv420p",
+        "-crf",
+        "18",
+        "-y",
+        str(output),
+    ],
+    stdin=subprocess.PIPE,
+)
 assert ffmpeg.stdin is not None
 
 
