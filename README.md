@@ -11,6 +11,7 @@ Command-line tools bundles command-line applications to manipulate event files.
   - [compilation](#compilation)
   - [documentation](#documentation)
     - [timecode](#timecode)
+    - [crop](#crop)
     - [cut](#cut)
     - [dat_to_es](#dat_to_es)
     - [es_to_csv](#es_to_csv)
@@ -97,6 +98,19 @@ Time parameters in command-line applications (timestamps, durations, decays...) 
 -   raw integers (`42`, `12345`...), interpreted as microseconds
 -   hh:mm:ss timecodes (`00:00:00`, `04:20:00`, `0:0:678`, `00:1440:00`...)
 -   hh:mm:ss.uuuuuu timecodes (`00:00:00.123456`, `04:20:00.000000`, `0:0:678.9`...), timecodes with more than 6 digits are rounded to the nearest microsecond.
+
+### crop
+
+crop generates a new Event Stream file with only events from the given region.
+
+```sh
+./crop [options] /path/to/input.es /path/to/output.es left bottom width height
+```
+
+Available options:
+
+-   `-p`, `--preserve-offset` prevents the coordinates of the cropped area from being normalized
+-   `-h`, `--help` shows the help message
 
 ### cut
 
