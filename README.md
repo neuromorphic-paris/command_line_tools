@@ -3,13 +3,13 @@
 Command-line tools bundles command-line applications to manipulate event files.
 
 - [install](#install)
-  - [clone](#clone)
-  - [dependencies](#dependencies)
-    - [Debian / Ubuntu](#debian--ubuntu)
-    - [macOS](#macos)
-    - [Windows](#windows)
-  - [compilation](#compilation)
-  - [documentation](#documentation)
+    - [clone](#clone)
+    - [dependencies](#dependencies)
+        - [Debian / Ubuntu](#debian--ubuntu)
+        - [macOS](#macos)
+        - [Windows](#windows)
+    - [compilation](#compilation)
+- [documentation](#documentation)
     - [timecode](#timecode)
     - [crop](#crop)
     - [cut](#cut)
@@ -22,10 +22,10 @@ Command-line tools bundles command-line applications to manipulate event files.
     - [size](#size)
     - [statistics](#statistics)
 - [contribute](#contribute)
-  - [development dependencies](#development-dependencies)
-    - [Debian / Ubuntu](#debian--ubuntu-1)
-    - [macOS](#macos-1)
-  - [test](#test)
+    - [development dependencies](#development-dependencies)
+        - [Debian / Ubuntu](#debian--ubuntu-1)
+        - [macOS](#macos-1)
+    - [test](#test)
 - [license](#license)
 
 # install
@@ -45,7 +45,7 @@ git clone --recursive https://github.com/neuromorphic-paris/command_line_tools.g
 Open a terminal and run:
 
 ```sh
-sudo apt install premake4 # cross-platform build configuration
+sudo apt install premake4
 ```
 
 ### macOS
@@ -53,7 +53,8 @@ sudo apt install premake4 # cross-platform build configuration
 Open a terminal and run:
 
 ```sh
-brew install premake # cross-platform build configuration
+brew tap tonyseek/premake
+brew install tonyseek/premake/premake4
 ```
 
 If the command is not found, you need to install Homebrew first with the command:
@@ -89,9 +90,9 @@ cd release
 
 The command-line applications are located in the _release_ directory.
 
-## documentation
+# documentation
 
-### timecode
+## timecode
 
 Time parameters in command-line applications (timestamps, durations, decays...) support three input formats:
 
@@ -99,7 +100,7 @@ Time parameters in command-line applications (timestamps, durations, decays...) 
 -   hh:mm:ss timecodes (`00:00:00`, `04:20:00`, `0:0:678`, `00:1440:00`...)
 -   hh:mm:ss.uuuuuu timecodes (`00:00:00.123456`, `04:20:00.000000`, `0:0:678.9`...), timecodes with more than 6 digits are rounded to the nearest microsecond.
 
-### crop
+## crop
 
 crop generates a new Event Stream file with only events from the given region.
 
@@ -112,7 +113,7 @@ Available options:
 -   `-p`, `--preserve-offset` prevents the coordinates of the cropped area from being normalized
 -   `-h`, `--help` shows the help message
 
-### cut
+## cut
 
 cut generates a new Event Stream file with only events from the given time range.
 
@@ -126,7 +127,7 @@ Available options:
 
 -   `-h`, `--help` shows the help message
 
-### dat_to_es
+## dat_to_es
 
 dat_to_es converts a TD file (and an optional APS file) to an Event Stream file.
 
@@ -140,7 +141,7 @@ Available options:
 
 -   `-h`, `--help` shows the help message
 
-### es_to_csv
+## es_to_csv
 
 es_to_csv converts an Event Stream file to a CSV file (compatible with Excel and Matlab):
 
@@ -152,7 +153,7 @@ Available options:
 
 -   `-h`, `--help` shows the help message
 
-### es_to_frames
+## es_to_frames
 
 es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists in raw rgb24 frames.
 
@@ -203,7 +204,7 @@ You can also use a lossless encoding format:
 cat /path/to/input.es | ./es_to_frames | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
 ```
 
-### es_to_ply
+## es_to_ply
 
 es_to_ply converts an Event Stream file to a PLY file (Polygon File Format, compatible with Blender).
 
@@ -217,7 +218,7 @@ Available options:
 -   `-d duration`, `--duration duration` sets the duration for the point cloud (timecode, defaults to `00:00:01`)
 -   `-h`, `--help` shows the help message
 
-### event_rate
+## event_rate
 
 event_rate plots the number of events per second (slidding time window).
 
@@ -233,7 +234,7 @@ Available options:
 -   `-h length`, `--height length` sets the output height in pixels (defaults to `720`)
 -   `-h`, `--help` shows the help message
 
-### rainmaker
+## rainmaker
 
 rainmaker generates a standalone HTML file containing a 3D representation of events from an Event Stream file.
 
@@ -250,7 +251,7 @@ Available options:
 -   `-a`, `--dark` renders in dark mode
 -   `-h`, `--help` shows the help message
 
-### size
+## size
 
 size prints the spatial dimensions of the given Event Stream file.
 
@@ -262,7 +263,7 @@ Available options:
 
 -   `-h`, `--help` shows the help message
 
-### statistics
+## statistics
 
 statistics retrieves the event stream's properties and outputs them in JSON format.
 
