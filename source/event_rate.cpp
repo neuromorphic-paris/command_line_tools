@@ -120,21 +120,23 @@ int main(int argc, char* argv[]) {
         {"event_rate plots the number of events per second (slidding time window).",
          "Syntax: ./event_rate [options] /path/to/input.es /path/to/output.svg",
          "Available options:",
-         "    -l tau, --long tau            sets the long (foreground curve) time window (timecode)",
-         "                                      defaults to 00:00:01.000",
-         "    -s tau, --short tau           sets the short (background curve) time window (timecode)",
-         "                                      defaults to 00:00:00.010",
-         "    -w length, --width length     sets the output width in pixels",
-         "                                      defaults to 1280",
-         "    -h length, --height length    sets the output height in pixels",
-         "                                      defaults to 720",
-         "    -h, --help            shows this help message"},
+         "    -l tau, --long tau        sets the long (foreground curve) time window (timecode)",
+         "                                  defaults to 00:00:01.000",
+         "    -s tau, --short tau       sets the short (background curve) time window (timecode)",
+         "                                  defaults to 00:00:00.010",
+         "    -w size, --width size     sets the output width in pixels",
+         "                                  defaults to 1280",
+         "    -h size, --height size    sets the output height in pixels",
+         "                                  defaults to 720",
+         "    -h, --help                shows this help message"},
         argc,
         argv,
         2,
         {
-            {"l", {"long"}},
-            {"s", {"short"}},
+            {"long", {"l"}},
+            {"short", {"s"}},
+            {"width", {"w"}},
+            {"height", {"h"}},
         },
         {},
         [](pontella::command command) {
@@ -167,7 +169,7 @@ int main(int argc, char* argv[]) {
             }
             std::size_t height = 720;
             {
-                const auto name_and_argument = command.options.find("width");
+                const auto name_and_argument = command.options.find("height");
                 if (name_and_argument != command.options.end()) {
                     height = std::stoull(name_and_argument->second);
                 }

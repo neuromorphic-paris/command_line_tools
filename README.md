@@ -230,8 +230,8 @@ Available options:
 
 -   `-l tau`, `--long tau` sets the long (foreground curve) time window (timecode, defaults to `00:00:01`)
 -   `-s tau`, `--short tau` sets the short (background curve) time window (timecode, defaults to `00:00:00.010`)
--   `-w length`, `--width length` sets the output width in pixels (defaults to `1280`)
--   `-h length`, `--height length` sets the output height in pixels (defaults to `720`)
+-   `-w size`, `--width size` sets the output width in pixels (defaults to `1280`)
+-   `-h size`, `--height size` sets the output height in pixels (defaults to `720`)
 -   `-h`, `--help` shows the help message
 
 ## rainmaker
