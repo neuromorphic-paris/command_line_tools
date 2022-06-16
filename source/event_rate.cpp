@@ -124,9 +124,9 @@ int main(int argc, char* argv[]) {
          "                                  defaults to 00:00:01.000",
          "    -s tau, --short tau       sets the short (background curve) time window (timecode)",
          "                                  defaults to 00:00:00.010",
-         "    -w size, --width size     sets the output width in pixels",
+         "    -i size, --width size     sets the output width in pixels",
          "                                  defaults to 1280",
-         "    -h size, --height size    sets the output height in pixels",
+         "    -e size, --height size    sets the output height in pixels",
          "                                  defaults to 720",
          "    -h, --help                shows this help message"},
         argc,
@@ -135,8 +135,8 @@ int main(int argc, char* argv[]) {
         {
             {"long", {"l"}},
             {"short", {"s"}},
-            {"width", {"w"}},
-            {"height", {"h"}},
+            {"width", {"i"}},
+            {"height", {"e"}},
         },
         {},
         [](pontella::command command) {
