@@ -253,20 +253,24 @@ int main(int argc, char* argv[]) {
             for (uint32_t index = log_minimum; index < log_maximum + 1; ++index) {
                 const auto digits = std::to_string(index).size();
                 *output << "<text text-anchor=\"end\" x=\""
-                        << x_offset - std::round((digits * font_exponent_ratio + 1) * font_size * font_width_ratio) << "\" y=\""
-                        << (value_to_y(std::pow(10, index)) + font_size * font_baseline_ratio) << "\" font-size=\"" << font_size
-                        << "px\" color=\"" << ticks_color << "\">10</text>\n";
+                        << x_offset - std::round((digits * font_exponent_ratio + 1) * font_size * font_width_ratio)
+                        << "\" y=\"" << (value_to_y(std::pow(10, index)) + font_size * font_baseline_ratio)
+                        << "\" font-size=\"" << font_size << "px\" color=\"" << ticks_color << "\">10</text>\n";
                 *output << "<text text-anchor=\"end\" x=\"" << x_offset - std::round(font_size * font_width_ratio)
-                        << "\" y=\"" << (value_to_y(std::pow(10, index)) + font_size * (font_baseline_ratio - font_exponent_baseline_ratio)) << "\" font-size=\""
-                        << std::round(font_size * font_exponent_ratio) << "px\" color=\"" << ticks_color << "\">" << index
-                        << "</text>\n";
+                        << "\" y=\""
+                        << (value_to_y(std::pow(10, index))
+                            + font_size * (font_baseline_ratio - font_exponent_baseline_ratio))
+                        << "\" font-size=\"" << std::round(font_size * font_exponent_ratio) << "px\" color=\""
+                        << ticks_color << "\">" << index << "</text>\n";
             }
             *output << "<text text-anchor=\"begin\" x=\"" << x_offset << "\" y=\""
-                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size << "px\" color=\""
-                    << ticks_color << "\">" << timecode(first_and_last_t.first).to_timecode_string() << "</text>\n";
+                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
+                    << "px\" color=\"" << ticks_color << "\">" << timecode(first_and_last_t.first).to_timecode_string()
+                    << "</text>\n";
             *output << "<text text-anchor=\"end\" x=\"" << (width - 1) << "\" y=\""
-                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size << "px\" color=\""
-                    << ticks_color << "\">" << timecode(first_and_last_t.second).to_timecode_string() << "</text>\n";
+                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
+                    << "px\" color=\"" << ticks_color << "\">" << timecode(first_and_last_t.second).to_timecode_string()
+                    << "</text>\n";
             for (uint32_t index = log_minimum; index < log_maximum; ++index) {
                 for (uint32_t multiplier = 2; multiplier < 10; ++multiplier) {
                     *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color

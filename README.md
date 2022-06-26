@@ -19,6 +19,7 @@ Command-line tools bundles command-line applications to manipulate event files.
     - [es_to_ply](#es_to_ply)
     - [event_rate](#event_rate)
     - [rainmaker](#rainmaker)
+    - [rainbow](#rainbow)
     - [size](#size)
     - [statistics](#statistics)
 - [contribute](#contribute)
@@ -173,9 +174,9 @@ Available options:
     -   if `style` is `exponential`, the decay is set to `parameter`
     -   if `style` is `linear`, the decay is set to `parameter / 2`
     -   if `style` is `window`, the time window is set to `parameter`
--   `-j color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#ffffff`)
--   `-k color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#000000`)
--   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#808080`)
+-   `-j color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#f4c20d`)
+-   `-k color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#1e88e5`)
+-   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#292929`)
 -   `-a`, `--add-timecode` adds a timecode overlay
 -   `-d digits`, `--digits digits` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
 -   `-r ratio`, `--discard-ratio ratio` sets the ratio of pixels discarded for tone mapping, ignored if the stream type is not atis, used for black (resp. white) if `--black` (resp. `--white`) is not set (defaults to 0.01)
@@ -249,6 +250,20 @@ Available options:
 -   `-r ratio`, `--ratio ratio` sets the discard ratio for logarithmic tone mapping (default to `0.05`, ignored if the file does not contain ATIS events)
 -   `-f duration`, `--frametime duration` sets the time between two frames (defaults to `auto`), `auto` calculates the time between two frames so that there is the same amount of raw data in events and frames, a duration in microseconds can be provided instead, `none` disables the frames, ignored if the file contains DVS events
 -   `-a`, `--dark` renders in dark mode
+-   `-h`, `--help` shows the help message
+
+## rainbow
+
+rainbow represents events by mapping time to colors.
+
+```sh
+./rainbow [options] /path/to/input.es /path/to/output.ppm
+```
+
+Available options:
+
+-   `-a alpha`, `--alpha alpha` sets the transparency level for each event (must be in the range ]0, 1], defaults to `0.1`)
+-   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#292929`)
 -   `-h`, `--help` shows the help message
 
 ## size
