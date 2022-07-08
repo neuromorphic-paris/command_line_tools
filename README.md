@@ -119,10 +119,10 @@ Available options:
 cut generates a new Event Stream file with only events from the given time range.
 
 ```sh
-./cut [options] /path/to/input.es /path/to/output.es begin duration
+./cut [options] /path/to/input.es /path/to/output.es begin end
 ```
 
-`begin` and `duration` must be timecodes.
+`begin` and `end` must be timecodes.
 
 Available options:
 

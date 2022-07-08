@@ -5,29 +5,24 @@
 /// cut creates a new Event Stream file with only events from the given time range.
 template <sepia::type event_stream_type>
 void cut(sepia::header header, const pontella::command& command) {
-    const auto begin = timecode(command.arguments[2]).value();
-    const auto end = begin + timecode(command.arguments[3]).value();
-    auto first = true;
-    uint64_t first_t = 0;
+    const auto begin_t = timecode(command.arguments[2]).value();
+    const auto end_t = timecode(command.arguments[3]).value();
+    auto first_t = std::numeric_limits<uint64_t>::max();
     const auto normalize = command.flags.find("normalize") != command.flags.end();
     sepia::write<event_stream_type> write(
         sepia::filename_to_ofstream(command.arguments[1]), header.width, header.height);
     sepia::join_observable<event_stream_type>(
         sepia::filename_to_ifstream(command.arguments[0]), [&](sepia::event<event_stream_type> event) {
-            if (event.t >= begin) {
-                if (first) {
-                    first = false;
-                    first_t = event.t;
-                }
-                if (event.t < end) {
-                    if (normalize) {
-                        event.t -= first_t;
-                    }
-                    write(event);
-                } else {
-                    throw sepia::end_of_file();
-                }
+            if (event.t < begin_t || event.t >= end_t) {
+                return;
             }
+            if (first_t == std::numeric_limits<uint64_t>::max()) {
+                first_t = event.t;
+            }
+            if (normalize) {
+                event.t -= first_t;
+            }
+            write(event);
         });
 }
 
@@ -35,7 +30,7 @@ int main(int argc, char* argv[]) {
     return pontella::main(
         {
             "cut generates a new Event Stream file with only events from the given time range.",
-            "Syntax: ./cut [options] /path/to/input.es /path/to/output.es begin duration",
+            "Syntax: ./cut [options] /path/to/input.es /path/to/output.es begin end",
             "Available options:",
             "    -n, --normalize    sets the first generated timestamp to zero",
             "    -h, --help         shows this help message",
