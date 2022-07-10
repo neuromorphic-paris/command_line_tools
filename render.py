@@ -205,8 +205,10 @@ ffmpeg = subprocess.Popen(
         "yuv420p",
         "-crf",
         str(args.h264_crf),
+        "-f",
+        "mp4",
         "-y",
-        str(output),
+        f"{output}.render",
     ],
     stdin=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -266,4 +268,5 @@ ffmpeg.stdin.close()
 event_stream.close()
 es_to_frames.wait()
 ffmpeg.wait()
+pathlib.Path(f"{output}.render").rename(output)
 ffmpeg_print_loop.join()
