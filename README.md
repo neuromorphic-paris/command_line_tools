@@ -33,7 +33,7 @@ Command-line tools bundles command-line applications to manipulate event files.
 
 ## clone
 
-To download Utilities, run the command:
+To download Command Line Tools, run:
 
 ```sh
 git clone --recursive https://github.com/neuromorphic-paris/command_line_tools.git
@@ -66,14 +66,18 @@ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/
 
 ### Windows
 
-Download and install:
-
--   [Visual Studio Community](https://visualstudio.microsoft.com/vs/community/). Select at least **Desktop development with C++** when asked.
--   [git](https://git-scm.com)
--   [premake 4.x](https://premake.github.io/download.html). In order to use it from the command line, the _premake4.exe_ executable must be copied to a directory in your path. After downloading and decompressing _premake-4.4-beta5-windows.zip_, run from the command line:
+Install Chocolatey (https://chocolatey.org/) by running as administrator (Start > Windows Powershell > Right click > Run as Administator):
 
 ```sh
-copy "%userprofile%\Downloads\premake-4.4-beta5-windows\premake4.exe" "%userprofile%\AppData\Local\Microsoft\WindowsApps"
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+```
+
+Open Powershell as administator and run:
+```sh
+choco install -y premake.portable
+choco install -y visualstudio2019buildtools
+choco install -y visualstudio2019-workload-vctools
+choco install -y ffmpeg
 ```
 
 ## compilation
@@ -87,7 +91,13 @@ make
 cd release
 ```
 
-**Windows** users must run `premake4 vs2010` instead, and open the generated solution with Visual Studio.
+**Windows** users must run the following commands from non-administrator Powershell instead:
+
+```sh
+premake4 vs2010
+cd build
+Get-ChildItem . -Filter *.vcxproj | Foreach-Object {C:\Program` Files` `(x86`)\Microsoft` Visual` Studio\2019\BuildTools\MSBuild\Current\Bin\MsBuild.exe /p:PlatformToolset=v142 /property:Configuration=Release $_}
+```
 
 The command-line applications are located in the _release_ directory.
 

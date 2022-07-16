@@ -7,6 +7,11 @@
 #include <iomanip>
 #include <sstream>
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 /// type_to_string returns a text representation of the type enum.
 std::string type_to_string(sepia::type type) {
     switch (type) {
@@ -62,6 +67,9 @@ int main(int argc, char* argv[]) {
                 const auto name_and_argument = command.options.find("input");
                 if (name_and_argument == command.options.end()) {
                     if (command.arguments.empty()) {
+                        #ifdef _WIN32
+                        _setmode(_fileno(stdin), _O_BINARY);
+                        #endif
                         input = sepia::make_unique<std::istream>(std::cin.rdbuf());
                     } else if (command.arguments.size() == 1) {
                         input = sepia::filename_to_ifstream(command.arguments.front());

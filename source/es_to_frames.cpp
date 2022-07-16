@@ -9,6 +9,11 @@
 #include <iomanip>
 #include <sstream>
 
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 /// exposure_measurement holds the parameters of an absolute luminance sample.
 SEPIA_PACK(struct exposure_measurement {
     uint64_t delta_t;
@@ -200,11 +205,11 @@ class frame {
             stbtt_GetCodepointBitmapBox(
                 _fontinfo.get(), timecode_string[index], scale, scale, &left, &top, &right, &bottom);
             height = std::max(height, static_cast<int32_t>(std::roundf(ascent * scale)) + bottom);
-            width += std::roundf(advance_width * scale);
+            width += static_cast<int32_t>(std::roundf(advance_width * scale));
             if (index < timecode_string.size() - 1) {
-                width += std::roundf(
+                width += static_cast<int32_t>(std::roundf(
                     stbtt_GetCodepointKernAdvance(_fontinfo.get(), timecode_string[index], timecode_string[index + 1])
-                    * scale);
+                    * scale));
             }
         }
         std::vector<uint8_t> bitmap(width * height);
@@ -436,6 +441,9 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("input");
                 if (name_and_argument == command.options.end()) {
+                    #ifdef _WIN32
+                    _setmode(_fileno(stdin), _O_BINARY);
+                    #endif
                     input = sepia::make_unique<std::istream>(std::cin.rdbuf());
                 } else {
                     input = sepia::filename_to_ifstream(name_and_argument->second);

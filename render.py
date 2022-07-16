@@ -154,7 +154,7 @@ width, height = (
     ).stdout.split(b"x")
 )
 
-event_stream = open(args.input)
+event_stream = open(args.input, "rb")
 es_to_frames_arguments = [
     str(dirname / "build" / "release" / "es_to_frames"),
     f"--begin={args.begin}",
@@ -211,49 +211,12 @@ ffmpeg = subprocess.Popen(
         f"{output}.render",
     ],
     stdin=subprocess.PIPE,
-    stderr=subprocess.PIPE,
 )
 assert ffmpeg.stdin is not None
-
-
-def ffmpeg_parse_line(line: bytearray):
-    return "=".join([word.strip() for word in line.decode().split("=")])
-
-
-def ffmpeg_print():
-    assert ffmpeg.stderr is not None
-    previous_line: typing.Optional[str] = None
-    line = bytearray()
-    while True:
-        read_bytes = ffmpeg.stderr.read(1)
-        if len(read_bytes) == 0:
-            break
-        if read_bytes[0] == 10:
-            if previous_line is not None:
-                sys.stdout.write(f"\r{' ' * len(previous_line)}\r")
-            previous_line = None
-            sys.stdout.write(f"{ffmpeg_parse_line(line)}\n")
-            sys.stdout.flush()
-            line = bytearray()
-        elif read_bytes[0] == 13:
-            if previous_line is not None:
-                sys.stdout.write(f"\r{' ' * len(previous_line)}\r")
-            previous_line = ffmpeg_parse_line(line)
-            sys.stdout.write(previous_line)
-            sys.stdout.flush()
-            line = bytearray()
-        else:
-            line.append(read_bytes[0])
-
-
-ffmpeg_print_loop = threading.Thread(target=ffmpeg_print, daemon=True)
-ffmpeg_print_loop.start()
-
 
 def cleanup():
     es_to_frames.kill()
     ffmpeg.kill()
-
 
 atexit.register(cleanup)
 
@@ -268,5 +231,5 @@ ffmpeg.stdin.close()
 event_stream.close()
 es_to_frames.wait()
 ffmpeg.wait()
+output.unlink(missing_ok=True)
 pathlib.Path(f"{output}.render").rename(output)
-ffmpeg_print_loop.join()

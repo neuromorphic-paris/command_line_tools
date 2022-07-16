@@ -1,6 +1,7 @@
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
 #include "timecode.hpp"
+#include <deque>
 
 // plot parameters
 constexpr uint16_t x_offset = 50;
