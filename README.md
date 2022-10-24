@@ -73,6 +73,7 @@ Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManage
 ```
 
 Open Powershell as administator and run:
+
 ```sh
 choco install -y premake.portable
 choco install -y visualstudio2019buildtools
@@ -179,14 +180,17 @@ Available options:
 -   `-b timestamp`, `--begin timestamp` ignores events before this timestamp (timecode, defaults to `00:00:00`),
 -   `-e timestamp`, `--end timestamp` ignores events after this timestamp (timecode, defaults to the end of the recording),
 -   `-f frametime`, `--frametime frametime` sets the time between two frames (timecode, defaults to `00:00:00.020`)
--   `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear` and `window`
+-   `-s style`, `--style style` selects the decay function, one of `exponential` (default), `linear`, `window`, `cumulative`, and `cumulative_shared`
 -   `-t tau`, `--tau tau` sets the decay function parameter (timecode, defaults to `00:00:00.200`)
     -   if `style` is `exponential`, the decay is set to `parameter`
     -   if `style` is `linear`, the decay is set to `parameter / 2`
     -   if `style` is `window`, the time window is set to `parameter`
+    -   if `style` is `cumulative`, the time window is set to `parameter`
+    -   if `style` is `cumulative-shared`, the time window is set to `parameter`
 -   `-j color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#f4c20d`)
 -   `-k color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#1e88e5`)
 -   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#292929`)
+-   `-r ratio`, `--discard-ratio ratio` sets the ratio of pixels discarded for cumulative mapping, ignored if the style is cumulative or cumulative-shared (defaults to 0.01)
 -   `-a`, `--add-timecode` adds a timecode overlay
 -   `-d digits`, `--digits digits` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
 -   `-r ratio`, `--discard-ratio ratio` sets the ratio of pixels discarded for tone mapping, ignored if the stream type is not atis, used for black (resp. white) if `--black` (resp. `--white`) is not set (defaults to 0.01)

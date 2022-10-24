@@ -63,7 +63,7 @@ parser.add_argument(
 parser.add_argument(
     "--style",
     "-s",
-    choices=["exponential", "linear", "window"],
+    choices=["exponential", "linear", "window", "cumulative", "cumulative-shared"],
     default="exponential",
     help="decay function",
 )
@@ -73,6 +73,18 @@ parser.add_argument(
 parser.add_argument("--oncolor", "-j", default="#f4c20d", help="color for ON events")
 parser.add_argument("--offcolor", "-k", default="#1e88e5", help="color for OFF events")
 parser.add_argument("--idlecolor", "-l", default="#292929", help="background color")
+parser.add_argument(
+    "--cumulative-ratio",
+    "-m",
+    type=float,
+    default="0.01",
+    help="ratio of pixels discarded for cumulative mapping (cumulative and cumulative-shared styles only)",
+)
+parser.add_argument(
+    "--lambda-max",
+    "-n",
+    help="cumulative mapping maximum activity, defaults to automatic discard calculation",
+)
 parser.add_argument(
     "--add-timecode", "-a", action="store_true", help="timecode overlay"
 )
@@ -164,11 +176,14 @@ es_to_frames_arguments = [
     f"--oncolor={args.oncolor}",
     f"--offcolor={args.offcolor}",
     f"--idlecolor={args.idlecolor}",
+    f"--cumulative-ratio={args.cumulative_ratio}",
     f"--discard-ratio={args.discard_ratio}",
     f"--atiscolor={args.atiscolor}",
 ]
 if args.end is not None:
     es_to_frames_arguments.append(f"--end={args.end}")
+if args.lambda_max is not None:
+    es_to_frames_arguments.append(f"--lambda-max={args.lambda_max}")
 if args.add_timecode:
     es_to_frames_arguments.append("--add-timecode")
 if args.white is not None:
@@ -214,9 +229,11 @@ ffmpeg = subprocess.Popen(
 )
 assert ffmpeg.stdin is not None
 
+
 def cleanup():
     es_to_frames.kill()
     ffmpeg.kill()
+
 
 atexit.register(cleanup)
 

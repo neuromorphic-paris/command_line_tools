@@ -8,10 +8,11 @@
 #include "timecode.hpp"
 #include <iomanip>
 #include <sstream>
+#include <tuple>
 
 #ifdef _WIN32
-#include <io.h>
 #include <fcntl.h>
+#include <io.h>
 #endif
 
 /// exposure_measurement holds the parameters of an absolute luminance sample.
@@ -25,7 +26,14 @@ constexpr uint16_t font_left = 20;
 constexpr uint16_t font_top = 20;
 constexpr uint16_t font_size = 30;
 
-enum class style { exponential, linear, window };
+enum class style { exponential, linear, window, cumulative, cumulative_shared };
+
+struct state {
+    std::vector<std::pair<uint64_t, bool>> ts_and_ons;
+    std::vector<std::tuple<uint64_t, double, bool>> ts_and_activities_and_ons;
+    std::vector<std::pair<uint64_t, double>> on_ts_and_activities;
+    std::vector<std::pair<uint64_t, double>> off_ts_and_activities;
+};
 
 struct color {
     uint8_t r;
@@ -63,10 +71,10 @@ class frame {
     frame& operator=(frame&& other) = delete;
     virtual ~frame() {}
 
-    virtual void paste_ts_and_ons(
+    virtual void paste_state(
         uint16_t width,
         uint16_t height,
-        const std::vector<std::pair<uint64_t, bool>>& ts_and_ons,
+        const state& style_state,
         uint16_t x_offset,
         uint16_t y_offset,
         style decay_style,
@@ -74,34 +82,100 @@ class frame {
         color on_color,
         color off_color,
         color idle_color,
-        uint64_t frame_t) {
-        for (uint16_t y = 0; y < height; ++y) {
-            for (uint16_t x = 0; x < width; ++x) {
-                const auto& t_and_on = ts_and_ons[x + y * width];
-                float lambda;
-                if (t_and_on.first == std::numeric_limits<uint64_t>::max()) {
-                    lambda = 0.0f;
-                } else {
-                    switch (decay_style) {
-                        case style::exponential:
-                            lambda =
-                                std::exp(-static_cast<float>(frame_t - 1 - t_and_on.first) / static_cast<float>(tau));
-                            break;
-                        case style::linear:
-                            lambda = t_and_on.first + 2 * tau > frame_t - 1 ?
-                                         static_cast<float>(t_and_on.first + 2 * tau - (frame_t - 1))
-                                             / static_cast<float>(2 * tau) :
-                                         0.0f;
-                            break;
-                        case style::window:
-                            lambda = t_and_on.first + tau > frame_t - 1 ? 1.0f : 0.0f;
-                            break;
+        uint64_t frame_t,
+        float cumulative_ratio,
+        float lambda_maximum,
+        bool lambda_maximum_auto) {
+        if (decay_style == style::cumulative || decay_style == style::cumulative_shared) {
+            std::vector<std::pair<float, bool>> lambdas_and_ons(width * height);
+            for (std::size_t index = 0; index < width * height; ++index) {
+                switch (decay_style) {
+                    case style::cumulative: {
+                        const auto on_lambda =
+                            style_state.on_ts_and_activities[index].second
+                            * std::exp(
+                                -static_cast<float>(frame_t - 1 - style_state.on_ts_and_activities[index].first)
+                                / static_cast<float>(tau));
+                        const auto off_lambda =
+                            style_state.off_ts_and_activities[index].second
+                            * std::exp(
+                                -static_cast<float>(frame_t - 1 - style_state.off_ts_and_activities[index].first)
+                                / static_cast<float>(tau));
+                        if (off_lambda > on_lambda) {
+                            lambdas_and_ons[index].first = off_lambda;
+                            lambdas_and_ons[index].second = false;
+                        } else {
+                            lambdas_and_ons[index].first = on_lambda;
+                            lambdas_and_ons[index].second = true;
+                        }
+                        break;
                     }
+                    case style::cumulative_shared: {
+                        lambdas_and_ons[index].first =
+                            std::get<1>(style_state.ts_and_activities_and_ons[index])
+                            * std::exp(
+                                -static_cast<float>(
+                                    frame_t - 1 - std::get<0>(style_state.ts_and_activities_and_ons[index]))
+                                / static_cast<float>(tau));
+                        lambdas_and_ons[index].second = std::get<2>(style_state.ts_and_activities_and_ons[index]);
+                        break;
+                    }
+                    default:
+                        break;
                 }
-                const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
-                _bytes[index] = idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
-                _bytes[index + 1] = idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
-                _bytes[index + 2] = idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
+            }
+            if (lambda_maximum_auto) {
+                std::vector<float> sorted_lambdas(lambdas_and_ons.size());
+                std::transform(
+                    lambdas_and_ons.begin(),
+                    lambdas_and_ons.end(),
+                    sorted_lambdas.begin(),
+                    [](const std::pair<float, bool> lambda_and_on) { return lambda_and_on.first; });
+                std::sort(sorted_lambdas.begin(), sorted_lambdas.end());
+                lambda_maximum = std::max(
+                    1.0f,
+                    sorted_lambdas[static_cast<std::size_t>((sorted_lambdas.size() - 1) * (1.0f - cumulative_ratio))]);
+            }
+            for (uint16_t y = 0; y < height; ++y) {
+                for (uint16_t x = 0; x < width; ++x) {
+                    const auto lambda_and_on = lambdas_and_ons[x + y * width];
+                    const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
+                    const auto scaled_lambda =
+                        lambda_and_on.first > lambda_maximum ? 1.0 : lambda_and_on.first / lambda_maximum;
+                    _bytes[index] = idle_color.mix_r(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    _bytes[index + 1] = idle_color.mix_g(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    _bytes[index + 2] = idle_color.mix_b(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                }
+            }
+        } else {
+            for (uint16_t y = 0; y < height; ++y) {
+                for (uint16_t x = 0; x < width; ++x) {
+                    const auto& t_and_on = style_state.ts_and_ons[x + y * width];
+                    auto lambda = 0.0f;
+                    if (t_and_on.first < std::numeric_limits<uint64_t>::max()) {
+                        switch (decay_style) {
+                            case style::exponential:
+                                lambda = std::exp(
+                                    -static_cast<float>(frame_t - 1 - t_and_on.first) / static_cast<float>(tau));
+                                break;
+                            case style::linear:
+                                lambda = t_and_on.first + 2 * tau > frame_t - 1 ?
+                                             static_cast<float>(t_and_on.first + 2 * tau - (frame_t - 1))
+                                                 / static_cast<float>(2 * tau) :
+                                             0.0f;
+                                break;
+                            case style::window:
+                                lambda = t_and_on.first + tau > frame_t - 1 ? 1.0f : 0.0f;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
+                    _bytes[index] = idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
+                    _bytes[index + 1] = idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
+                    _bytes[index + 2] = idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
+                }
             }
         }
     }
@@ -129,8 +203,8 @@ class frame {
             const auto size = static_cast<std::size_t>(std::distance(sorted_delta_ts.begin(), end));
             if (size > 0) {
                 std::sort(sorted_delta_ts.begin(), end);
-                auto black_candidate = sorted_delta_ts[static_cast<std::size_t>(size * (1.0f - discard_ratio))];
-                auto white_candidate = sorted_delta_ts[static_cast<std::size_t>(size * discard_ratio + 0.5f)];
+                auto black_candidate = sorted_delta_ts[static_cast<std::size_t>((size - 1) * (1.0f - discard_ratio))];
+                auto white_candidate = sorted_delta_ts[static_cast<std::size_t>((size - 1) * discard_ratio + 0.5f)];
                 if (black_candidate > white_candidate) {
                     minimum = 1.0f / static_cast<float>(black_candidate);
                     maximum = 1.0f / static_cast<float>(white_candidate);
@@ -298,12 +372,15 @@ int main(int argc, char* argv[]) {
          "    -f frametime, --frametime frametime    sets the time between two frames (timecode)",
          "                                               defaults to 00:00:00.020",
          "    -s style, --style style                selects the decay function",
-         "                                               one of exponential (default), linear, window",
+         "                                               one of exponential (default), linear, window,",
+         "                                               cumulative, cumulative-shared",
          "    -t tau, --tau tau                      sets the decay function parameter (timecode)",
          "                                               defaults to 00:00:00.200",
          "                                               if style is `exponential`, the decay is set to tau",
          "                                               if style is `linear`, the decay is set to tau * 2",
          "                                               if style is `window`, the time window is set to tau",
+         "                                               if style is `cumulative`, the decay is set to tau",
+         "                                               if style is `cumulative-shared`, the decay is set to tau",
          "    -j color, --oncolor color              sets the color for ON events",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
@@ -316,6 +393,13 @@ int main(int argc, char* argv[]) {
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
          "                                               defaults to #292929",
+         "    -m ratio, --cumulative-ratio ratio     sets the ratio of pixels discarded for cumulative mapping",
+         "                                               ignored if the style type is not",
+         "                                               cumulative or cumulative-shared",
+         "                                               used for lambda-max if --lambda-max is not set",
+         "                                               defaults to 0.01",
+         "    -n, --lambda-max                       sets the cumulative mapping maximum activity",
+         "                                               defaults to automatic discard calculation",
          "    -a, --add-timecode                     adds a timecode overlay",
          "    -d digits, --digits digits             sets the number of digits in output filenames",
          "                                               ignored if the output is not a directory",
@@ -348,6 +432,8 @@ int main(int argc, char* argv[]) {
             {"oncolor", {"j"}},
             {"offcolor", {"k"}},
             {"idlecolor", {"l"}},
+            {"cumulative-ratio", {"m"}},
+            {"lambda-max", {"n"}},
             {"digits", {"d"}},
             {"discard-ratio", {"r"}},
             {"black", {"v"}},
@@ -406,6 +492,28 @@ int main(int argc, char* argv[]) {
                     idle_color = color(name_and_argument->second);
                 }
             }
+            auto cumulative_ratio = 0.01f;
+            {
+                const auto name_and_argument = command.options.find("cumulative-ratio");
+                if (name_and_argument != command.options.end()) {
+                    cumulative_ratio = std::stof(name_and_argument->second);
+                    if (cumulative_ratio < 0.0f || cumulative_ratio > 1.0f) {
+                        throw std::runtime_error("cumulative-ratio must be in the range [0, 1]");
+                    }
+                }
+            }
+            auto lambda_maximum = 0.0f;
+            auto lambda_maximum_auto = true;
+            {
+                const auto name_and_argument = command.options.find("lambda-max");
+                if (name_and_argument != command.options.end()) {
+                    lambda_maximum = std::stof(name_and_argument->second);
+                    lambda_maximum_auto = false;
+                    if (lambda_maximum < 0.0f) {
+                        throw std::runtime_error("lambda-max must be larger than 0");
+                    }
+                }
+            }
             const auto add_timecode = command.flags.find("add-timecode") != command.flags.end();
             auto decay_style = style::exponential;
             {
@@ -415,6 +523,10 @@ int main(int argc, char* argv[]) {
                         decay_style = style::linear;
                     } else if (name_and_argument->second == "window") {
                         decay_style = style::window;
+                    } else if (name_and_argument->second == "cumulative") {
+                        decay_style = style::cumulative;
+                    } else if (name_and_argument->second == "cumulative-shared") {
+                        decay_style = style::cumulative_shared;
                     } else if (name_and_argument->second != "exponential") {
                         throw std::runtime_error("style must be one of {exponential, linear, window}");
                     }
@@ -441,9 +553,9 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("input");
                 if (name_and_argument == command.options.end()) {
-                    #ifdef _WIN32
+#ifdef _WIN32
                     _setmode(_fileno(stdin), _O_BINARY);
-                    #endif
+#endif
                     input = sepia::make_unique<std::istream>(std::cin.rdbuf());
                 } else {
                     input = sepia::filename_to_ifstream(name_and_argument->second);
@@ -465,8 +577,20 @@ int main(int argc, char* argv[]) {
                 case sepia::type::generic:
                     throw std::runtime_error("unsupported event stream type 'generic'");
                 case sepia::type::dvs: {
-                    std::vector<std::pair<uint64_t, bool>> ts_and_ons(
-                        header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                    state style_state;
+                    switch (decay_style) {
+                        case style::cumulative:
+                            style_state.on_ts_and_activities.resize(header.width * header.height, {0, 0.0});
+                            style_state.off_ts_and_activities.resize(header.width * header.height, {0, 0.0});
+                            break;
+                        case style::cumulative_shared:
+                            style_state.ts_and_activities_and_ons.resize(header.width * header.height, {0, 0.0, false});
+                            break;
+                        default:
+                            style_state.ts_and_ons.resize(
+                                header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                            break;
+                    }
                     uint64_t frame_index = 0;
                     auto first_t = std::numeric_limits<uint64_t>::max();
                     frame output_frame(header.width, header.height);
@@ -479,10 +603,10 @@ int main(int argc, char* argv[]) {
                         }
                         const auto frame_t = first_t + frame_index * frametime;
                         if (event.t >= frame_t) {
-                            output_frame.paste_ts_and_ons(
+                            output_frame.paste_state(
                                 header.width,
                                 header.height,
-                                ts_and_ons,
+                                style_state,
                                 0,
                                 0,
                                 decay_style,
@@ -490,15 +614,55 @@ int main(int argc, char* argv[]) {
                                 on_color,
                                 off_color,
                                 idle_color,
-                                frame_t);
+                                frame_t,
+                                cumulative_ratio,
+                                lambda_maximum,
+                                lambda_maximum_auto);
                             if (add_timecode) {
                                 output_frame.paste_timecode(font_left, font_top, font_size, frame_t);
                             }
                             output_frame.write(output_directory, digits, frame_index);
                             ++frame_index;
                         }
-                        ts_and_ons[event.x + event.y * header.width].first = event.t;
-                        ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
+                        const auto index = event.x + event.y * header.width;
+                        switch (decay_style) {
+                            case style::cumulative:
+                                if (event.is_increase) {
+                                    style_state.on_ts_and_activities[index].second =
+                                        style_state.on_ts_and_activities[index].second
+                                            * std::exp(
+                                                -static_cast<float>(
+                                                    event.t - style_state.on_ts_and_activities[index].first)
+                                                / static_cast<float>(tau))
+                                        + 1.0;
+                                    style_state.on_ts_and_activities[index].first = event.t;
+                                } else {
+                                    style_state.off_ts_and_activities[index].second =
+                                        style_state.off_ts_and_activities[index].second
+                                            * std::exp(
+                                                -static_cast<float>(
+                                                    event.t - style_state.off_ts_and_activities[index].first)
+                                                / static_cast<float>(tau))
+                                        + 1.0;
+                                    style_state.off_ts_and_activities[index].first = event.t;
+                                }
+                                break;
+                            case style::cumulative_shared:
+                                std::get<1>(style_state.ts_and_activities_and_ons[index]) =
+                                    std::get<1>(style_state.ts_and_activities_and_ons[index])
+                                        * std::exp(
+                                            -static_cast<float>(
+                                                event.t - std::get<0>(style_state.ts_and_activities_and_ons[index]))
+                                            / static_cast<float>(tau))
+                                    + 1.0;
+                                std::get<0>(style_state.ts_and_activities_and_ons[index]) = event.t;
+                                std::get<2>(style_state.ts_and_activities_and_ons[index]) = event.is_increase;
+                                break;
+                            default:
+                                style_state.ts_and_ons[index].first = event.t;
+                                style_state.ts_and_ons[index].second = event.is_increase;
+                                break;
+                        }
                     });
                     break;
                 }
@@ -536,7 +700,7 @@ int main(int argc, char* argv[]) {
                         if (name_and_argument != command.options.end()) {
                             discard_ratio = std::stof(name_and_argument->second);
                             if (discard_ratio < 0.0f || discard_ratio > 1.0f) {
-                                throw std::runtime_error("discard-ratio must be in he range [0, 1]");
+                                throw std::runtime_error("discard-ratio must be in the range [0, 1]");
                             }
                         }
                     }
@@ -547,8 +711,20 @@ int main(int argc, char* argv[]) {
                             atis_color = color(name_and_argument->second);
                         }
                     }
-                    std::vector<std::pair<uint64_t, bool>> ts_and_ons(
-                        header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                    state style_state;
+                    switch (decay_style) {
+                        case style::cumulative:
+                            style_state.on_ts_and_activities.resize(header.width * header.height, {0, 0.0});
+                            style_state.off_ts_and_activities.resize(header.width * header.height, {0, 0.0});
+                            break;
+                        case style::cumulative_shared:
+                            style_state.ts_and_activities_and_ons.resize(header.width * header.height, {0, 0.0, false});
+                            break;
+                        default:
+                            style_state.ts_and_ons.resize(
+                                header.width * header.height, {std::numeric_limits<uint64_t>::max(), false});
+                            break;
+                    }
                     std::vector<uint64_t> delta_ts(header.width * header.height, std::numeric_limits<uint64_t>::max());
                     uint64_t frame_index = 0;
                     auto first_t = std::numeric_limits<uint64_t>::max();
@@ -566,10 +742,10 @@ int main(int argc, char* argv[]) {
                                 }
                                 const auto frame_t = first_t + frame_index * frametime;
                                 if (event.t >= frame_t) {
-                                    output_frame.paste_ts_and_ons(
+                                    output_frame.paste_state(
                                         header.width,
                                         header.height,
-                                        ts_and_ons,
+                                        style_state,
                                         0,
                                         0,
                                         decay_style,
@@ -577,7 +753,10 @@ int main(int argc, char* argv[]) {
                                         on_color,
                                         off_color,
                                         idle_color,
-                                        frame_t);
+                                        frame_t,
+                                        cumulative_ratio,
+                                        lambda_maximum,
+                                        lambda_maximum_auto);
                                     output_frame.paste_delta_ts(
                                         header.width,
                                         header.height,
@@ -599,8 +778,48 @@ int main(int argc, char* argv[]) {
                             },
                             sepia::make_split<sepia::type::atis>(
                                 [&](sepia::dvs_event event) {
-                                    ts_and_ons[event.x + event.y * header.width].first = event.t;
-                                    ts_and_ons[event.x + event.y * header.width].second = event.is_increase;
+                                    const auto index = event.x + event.y * header.width;
+                                    switch (decay_style) {
+                                        case style::cumulative:
+                                            if (event.is_increase) {
+                                                style_state.on_ts_and_activities[index].second =
+                                                    style_state.on_ts_and_activities[index].second
+                                                        * std::exp(
+                                                            -static_cast<float>(
+                                                                event.t - style_state.on_ts_and_activities[index].first)
+                                                            / static_cast<float>(tau))
+                                                    + 1.0;
+                                                style_state.on_ts_and_activities[index].first = event.t;
+                                            } else {
+                                                style_state.off_ts_and_activities[index].second =
+                                                    style_state.off_ts_and_activities[index].second
+                                                        * std::exp(
+                                                            -static_cast<float>(
+                                                                event.t
+                                                                - style_state.off_ts_and_activities[index].first)
+                                                            / static_cast<float>(tau))
+                                                    + 1.0;
+                                                style_state.off_ts_and_activities[index].first = event.t;
+                                            }
+                                            break;
+                                        case style::cumulative_shared:
+                                            std::get<1>(style_state.ts_and_activities_and_ons[index]) =
+                                                std::get<1>(style_state.ts_and_activities_and_ons[index])
+                                                    * std::exp(
+                                                        -static_cast<float>(
+                                                            event.t
+                                                            - std::get<0>(style_state.ts_and_activities_and_ons[index]))
+                                                        / static_cast<float>(tau))
+                                                + 1.0;
+                                            std::get<0>(style_state.ts_and_activities_and_ons[index]) = event.t;
+                                            std::get<2>(style_state.ts_and_activities_and_ons[index]) =
+                                                event.is_increase;
+                                            break;
+                                        default:
+                                            style_state.ts_and_ons[index].first = event.t;
+                                            style_state.ts_and_ons[index].second = event.is_increase;
+                                            break;
+                                    }
                                 },
                                 tarsier::make_stitch<sepia::threshold_crossing, exposure_measurement>(
                                     header.width,
