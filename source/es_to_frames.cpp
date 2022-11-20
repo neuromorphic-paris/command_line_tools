@@ -601,8 +601,8 @@ int main(int argc, char* argv[]) {
                         if (first_t == std::numeric_limits<uint64_t>::max()) {
                             first_t = event.t;
                         }
-                        const auto frame_t = first_t + frame_index * frametime;
-                        if (event.t >= frame_t) {
+                        auto frame_t = first_t + frame_index * frametime;
+                        while (event.t >= frame_t) {
                             output_frame.paste_state(
                                 header.width,
                                 header.height,
@@ -623,6 +623,7 @@ int main(int argc, char* argv[]) {
                             }
                             output_frame.write(output_directory, digits, frame_index);
                             ++frame_index;
+                            frame_t = first_t + frame_index * frametime;
                         }
                         const auto index = event.x + event.y * header.width;
                         switch (decay_style) {
@@ -740,8 +741,8 @@ int main(int argc, char* argv[]) {
                                 if (first_t == std::numeric_limits<uint64_t>::max()) {
                                     first_t = event.t;
                                 }
-                                const auto frame_t = first_t + frame_index * frametime;
-                                if (event.t >= frame_t) {
+                                auto frame_t = first_t + frame_index * frametime;
+                                while (event.t >= frame_t) {
                                     output_frame.paste_state(
                                         header.width,
                                         header.height,
@@ -774,6 +775,7 @@ int main(int argc, char* argv[]) {
                                     }
                                     output_frame.write(output_directory, digits, frame_index);
                                     ++frame_index;
+                                    frame_t = first_t + frame_index * frametime;
                                 }
                             },
                             sepia::make_split<sepia::type::atis>(

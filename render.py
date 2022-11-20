@@ -4,7 +4,6 @@ import pathlib
 import re
 import subprocess
 import sys
-import threading
 import typing
 
 dirname = pathlib.Path(__file__).resolve().parent
@@ -77,7 +76,7 @@ parser.add_argument(
     "--cumulative-ratio",
     "-m",
     type=float,
-    default="0.01",
+    default=0.01,
     help="ratio of pixels discarded for cumulative mapping (cumulative and cumulative-shared styles only)",
 )
 parser.add_argument(
@@ -92,7 +91,7 @@ parser.add_argument(
     "--discard-ratio",
     "-r",
     type=float,
-    default="0.01",
+    default=0.01,
     help="ratio of pixels discarded for tone mapping (ATIS only)",
 )
 parser.add_argument(
@@ -123,6 +122,48 @@ parser.add_argument(
     default=15,
     help="H264 Constant Rate Factor (CRF)",
 )
+parser.add_argument(
+    "--sonify",
+    "-y",
+    action="store_true",
+    help="generate audio with 'synth'",
+)
+parser.add_argument(
+    "--skip-merge",
+    action="store_true",
+    help="do not merge audio and video",
+)
+parser.add_argument(
+    "--sonify-amplitude-gain",
+    type=float,
+    default=0.1,
+    help="activity to sound amplitude conversion factor",
+)
+parser.add_argument(
+    "--sonify-minimum-frequency",
+    type=float,
+    default=27.5,
+    help="minimum frequency (bottom row) in Hertz",
+)
+parser.add_argument(
+    "--sonify-maximum-frequency",
+    type=float,
+    default=4186.009,
+    help="maximum frequency (top row) in Hertz",
+)
+parser.add_argument(
+    "--sonify-sampling-rate", type=int, default=44100, help="sampling rate in Hertz"
+)
+parser.add_argument(
+    "--sonify-tracker-lambda",
+    type=float,
+    default=0.1,
+    help="row tracker moving mean parameter",
+)
+parser.add_argument(
+    "--sonify-activity-tau", type=float, default=10000, help="row decay parameter in µs"
+)
+
 args = parser.parse_args()
 
 input = pathlib.Path(args.input).resolve()
@@ -144,9 +185,10 @@ if args.output is None:
         tau = f"{args.tau // 1000}ms"
     else:
         tau = f"{args.tau}us"
+    sonify_suffix = "_sound" if args.sonify else ""
     output = (
         input.parent
-        / f"{input.stem}{range_string}_{args.style}_frametime={frametime}_tau={tau}.mp4"
+        / f"{input.stem}{range_string}_{args.style}_frametime={frametime}_tau={tau}{sonify_suffix}.mp4"
     )
 else:
     output = pathlib.Path(args.output).resolve()
@@ -166,9 +208,9 @@ width, height = (
     ).stdout.split(b"x")
 )
 
-event_stream = open(args.input, "rb")
 es_to_frames_arguments = [
     str(dirname / "build" / "release" / "es_to_frames"),
+    f"--input={str(input)}",
     f"--begin={args.begin}",
     f"--frametime={args.frametime}",
     f"--style={args.style}",
@@ -192,7 +234,6 @@ if args.black is not None:
     es_to_frames_arguments.append(f"--black={args.black}")
 es_to_frames = subprocess.Popen(
     es_to_frames_arguments,
-    stdin=event_stream,
     stdout=subprocess.PIPE,
 )
 assert es_to_frames.stdout is not None
@@ -229,10 +270,35 @@ ffmpeg = subprocess.Popen(
 )
 assert ffmpeg.stdin is not None
 
+synth: typing.Optional[subprocess.Popen] = None
+if args.sonify:
+    synth_arguments = [
+        str(dirname / "build" / "release" / "synth"),
+        str(input),
+        f"{output.with_suffix('.wav')}.render",
+        "--output-mode=1",
+        f"--begin={args.begin}",
+        f"--amplitude-gain={args.sonify_amplitude_gain}",
+        f"--minimum-frequency={args.sonify_minimum_frequency}",
+        f"--maximum-frequency={args.sonify_maximum_frequency}",
+        f"--sampling-rate={args.sonify_sampling_rate}",
+        f"--tracker-lambda={args.sonify_tracker_lambda}",
+        f"--playback-speed={args.frametime / 20000.0}",
+        f"--activity-tau={args.sonify_activity_tau}",
+    ]
+    if args.end is not None:
+        synth_arguments.append(f"--end={args.end}")
+    synth = subprocess.Popen(
+        synth_arguments,
+        stdout=subprocess.PIPE,
+    )
+
 
 def cleanup():
     es_to_frames.kill()
     ffmpeg.kill()
+    if synth is not None:
+        synth.kill()
 
 
 atexit.register(cleanup)
@@ -245,8 +311,57 @@ while True:
     ffmpeg.stdin.write(frame)
 
 ffmpeg.stdin.close()
-event_stream.close()
 es_to_frames.wait()
 ffmpeg.wait()
-output.unlink(missing_ok=True)
-pathlib.Path(f"{output}.render").rename(output)
+
+if not args.sonify or args.skip_merge:
+    output.unlink(missing_ok=True)
+    pathlib.Path(f"{output}.render").rename(output)
+
+if synth is not None:
+    assert synth.stdout is not None
+    while True:
+        line = synth.stdout.readline()
+        if len(line) == 0:
+            sys.stdout.write(f"\n")
+            break
+        sys.stdout.write(f"\r{line[:-1].decode()}")
+        sys.stdout.flush()
+    synth.wait()
+
+    if args.skip_merge:
+        output.with_suffix(".wav").unlink(missing_ok=True)
+        pathlib.Path(f"{output.with_suffix('.wav')}.render").rename(
+            output.with_suffix(".wav")
+        )
+    else:
+        ffmpeg = subprocess.Popen(
+            [
+                args.ffmpeg,
+                "-hide_banner",
+                "-loglevel",
+                "warning",
+                "-stats",
+                "-i",
+                f"{output}.render",
+                "-guess_layout_max",
+                "0",
+                "-i",
+                f"{output.with_suffix('.wav')}.render",
+                "-af",
+                "pan=stereo| c0=c0 | c1=c1",
+                "-c:v",
+                "copy",
+                "-c:a",
+                "aac",
+                "-f",
+                "mp4",
+                "-y",
+                f"{output}.merge",
+            ],
+        )
+        ffmpeg.wait()
+        output.unlink(missing_ok=True)
+        pathlib.Path(f"{output}.merge").rename(output)
+        pathlib.Path(f"{output}.render").unlink()
+        pathlib.Path(f"{output.with_suffix('.wav')}.render").unlink()
