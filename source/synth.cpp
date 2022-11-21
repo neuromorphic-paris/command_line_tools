@@ -114,7 +114,7 @@ void synth(
                 }
                 int16_t left_sample = 0;
                 if (left < std::numeric_limits<int16_t>::min()) {
-                    left_sample = -std::numeric_limits<int16_t>::min();
+                    left_sample = std::numeric_limits<int16_t>::min();
                 } else if (left > std::numeric_limits<int16_t>::max()) {
                     left_sample = std::numeric_limits<int16_t>::max();
                 } else {
@@ -122,7 +122,7 @@ void synth(
                 }
                 int16_t right_sample = 0;
                 if (right < std::numeric_limits<int16_t>::min()) {
-                    right_sample = -std::numeric_limits<int16_t>::min();
+                    right_sample = std::numeric_limits<int16_t>::min();
                 } else if (right > std::numeric_limits<int16_t>::max()) {
                     right_sample = std::numeric_limits<int16_t>::max();
                 } else {
