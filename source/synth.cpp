@@ -59,7 +59,7 @@ void synth(
     const auto inverse_tau = 1.0f / static_cast<float>(activity_tau);
     const auto frequency_a = static_cast<double>(minimum_frequency) / static_cast<double>(sampling_rate) * 2.0 * M_PI;
     const auto frequency_b =
-        (std::logf(maximum_frequency) - std::logf(minimum_frequency)) / static_cast<float>(header.height - 1);
+        (std::log(maximum_frequency) - std::log(minimum_frequency)) / static_cast<float>(header.height - 1);
     uint32_t sample = 0;
     uint64_t sample_t = 0;
     auto gain = amplitude_gain * static_cast<float>(std::numeric_limits<int16_t>::max());
@@ -100,12 +100,12 @@ void synth(
                         ts_and_activities[y].first == std::numeric_limits<uint64_t>::max() ?
                             0.0f :
                             (ts_and_activities[y].second
-                             * std::expf(-static_cast<float>(sample_t - ts_and_activities[y].first) * inverse_tau)
+                             * std::exp(-static_cast<float>(sample_t - ts_and_activities[y].first) * inverse_tau)
                              / static_cast<float>(header.width))
                                 * gain
-                                * std::sinf(
+                                * std::sin(
                                     static_cast<float>(static_cast<double>(sample) * frequency_a)
-                                    * std::expf(frequency_b * static_cast<float>(y)));
+                                    * std::exp(frequency_b * static_cast<float>(y)));
                     const auto balance = row_trackers[y] / static_cast<float>(header.width - 1);
                     left += static_cast<double>((1.0f - balance) * signal);
                     right += static_cast<double>(balance * signal);
@@ -116,7 +116,7 @@ void synth(
                 } else if (left > std::numeric_limits<int16_t>::max()) {
                     left_sample = std::numeric_limits<int16_t>::max();
                 } else {
-                    left_sample = static_cast<int16_t>(std::roundf(left));
+                    left_sample = static_cast<int16_t>(std::round(left));
                 }
                 int16_t right_sample = 0;
                 if (right < std::numeric_limits<int16_t>::min()) {
@@ -124,7 +124,7 @@ void synth(
                 } else if (right > std::numeric_limits<int16_t>::max()) {
                     right_sample = std::numeric_limits<int16_t>::max();
                 } else {
-                    right_sample = static_cast<int16_t>(std::roundf(right));
+                    right_sample = static_cast<int16_t>(std::round(right));
                 }
                 std::array<uint8_t, 4> bytes{
                     static_cast<uint8_t>(*reinterpret_cast<uint16_t*>(&left_sample) & 0xff),
@@ -141,7 +141,7 @@ void synth(
                 t_and_activity.second = 1.0f;
             } else {
                 t_and_activity.second =
-                    t_and_activity.second * std::expf(-static_cast<float>(event.t - t_and_activity.first) * inverse_tau)
+                    t_and_activity.second * std::exp(-static_cast<float>(event.t - t_and_activity.first) * inverse_tau)
                     + 1.0f;
             }
             t_and_activity.first = event.t;
