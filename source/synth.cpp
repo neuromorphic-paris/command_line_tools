@@ -57,7 +57,7 @@ void synth(
         write_le_uint32(*output_stream.get(), header_value);
     }
     const auto inverse_tau = 1.0f / static_cast<float>(activity_tau);
-    const auto frequency_a = static_cast<double>(minimum_frequency) / 1e6 * 2.0 * M_PI;
+    const auto frequency_a = static_cast<double>(minimum_frequency) / static_cast<double>(sampling_rate) * 2.0 * M_PI;
     const auto frequency_b =
         (std::logf(maximum_frequency) - std::logf(minimum_frequency)) / static_cast<float>(header.height - 1);
     uint32_t sample = 0;
@@ -93,8 +93,6 @@ void synth(
                             break;
                     }
                 }
-                ++sample;
-                sample_t = static_cast<uint64_t>(std::round(static_cast<double>(sample) * sample_factor));
                 auto left = 0.0;
                 auto right = 0.0;
                 for (uint16_t y = 0; y < header.height; ++y) {
@@ -106,7 +104,7 @@ void synth(
                              / static_cast<float>(header.width))
                                 * gain
                                 * std::sinf(
-                                    static_cast<float>(event.t * frequency_a)
+                                    static_cast<float>(static_cast<double>(sample) * frequency_a)
                                     * std::expf(frequency_b * static_cast<float>(y)));
                     const auto balance = row_trackers[y] / static_cast<float>(header.width - 1);
                     left += static_cast<double>((1.0f - balance) * signal);
@@ -135,6 +133,8 @@ void synth(
                     static_cast<uint8_t>((*reinterpret_cast<uint16_t*>(&right_sample) >> 8) & 0xff),
                 };
                 output_stream->write(reinterpret_cast<const char*>(bytes.data()), bytes.size());
+                ++sample;
+                sample_t = static_cast<uint64_t>(std::round(static_cast<double>(sample) * sample_factor));
             }
             auto& t_and_activity = ts_and_activities[event.y];
             if (t_and_activity.first == std::numeric_limits<uint64_t>::max()) {

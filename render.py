@@ -161,7 +161,7 @@ parser.add_argument(
     help="row tracker moving mean parameter",
 )
 parser.add_argument(
-    "--sonify-activity-tau", type=float, default=10000, help="row decay parameter in µs"
+    "--sonify-activity-tau", type=timecode, default=10000, help="row decay parameter in µs"
 )
 
 args = parser.parse_args()
