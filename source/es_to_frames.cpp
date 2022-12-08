@@ -595,8 +595,11 @@ int main(int argc, char* argv[]) {
                     auto first_t = std::numeric_limits<uint64_t>::max();
                     frame output_frame(header.width, header.height);
                     sepia::join_observable<sepia::type::dvs>(std::move(input), header, [&](sepia::dvs_event event) {
-                        if (event.t < begin_t || event.t >= end_t) {
+                        if (event.t < begin_t) {
                             return;
+                        }
+                        if (event.t >= end_t) {
+                            throw sepia::end_of_file();
                         }
                         if (first_t == std::numeric_limits<uint64_t>::max()) {
                             first_t = event.t;
@@ -735,8 +738,11 @@ int main(int argc, char* argv[]) {
                         header,
                         tarsier::make_replicate<sepia::atis_event>(
                             [&](sepia::atis_event event) {
-                                if (event.t < begin_t || event.t >= end_t) {
+                                if (event.t < begin_t) {
                                     return;
+                                }
+                                if (event.t >= end_t) {
+                                    throw sepia::end_of_file();
                                 }
                                 if (first_t == std::numeric_limits<uint64_t>::max()) {
                                     first_t = event.t;

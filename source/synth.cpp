@@ -70,7 +70,10 @@ void synth(
     const auto output_modulo =
         std::min(1u, static_cast<uint32_t>(std::round(static_cast<double>(sampling_rate) / 100.0)));
     sepia::join_observable<event_stream_type>(std::move(input_stream), [&](sepia::event<event_stream_type> event) {
-        if (event.t >= begin_t && event.t < end_t) {
+        if (event.t >= begin_t) {
+            if (event.t >= end_t) {
+                throw sepia::end_of_file();
+            }
             event.t -= begin_t;
             while (event.t > sample_t) {
                 if (sample % output_modulo == 0) {

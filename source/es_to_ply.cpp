@@ -49,7 +49,7 @@ int main(int argc, char* argv[]) {
                     sepia::join_observable<sepia::type::dvs>(std::move(input), [&](sepia::dvs_event dvs_event) {
                         if (dvs_event.t >= begin_t) {
                             if (dvs_event.t >= target_end_t) {
-                                return;
+                                throw sepia::end_of_file();
                             }
                             if (dvs_event.is_increase) {
                                 ++on_count;
