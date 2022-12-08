@@ -13,11 +13,12 @@ Command-line tools bundles command-line applications to manipulate event files.
     - [timecode](#timecode)
     - [crop](#crop)
     - [cut](#cut)
-    - [dat_to_es](#dat_to_es)
-    - [es_to_csv](#es_to_csv)
-    - [es_to_frames](#es_to_frames)
-    - [es_to_ply](#es_to_ply)
-    - [event_rate](#event_rate)
+    - [dat\_to\_es](#dat_to_es)
+    - [es\_to\_csv](#es_to_csv)
+    - [es\_to\_frames](#es_to_frames)
+    - [es\_to\_ply](#es_to_ply)
+    - [event\_rate](#event_rate)
+    - [evt3\_to\_es](#evt3_to_es)
     - [rainmaker](#rainmaker)
     - [rainbow](#rainbow)
     - [size](#size)
@@ -247,6 +248,18 @@ Available options:
 -   `-s tau`, `--short tau` sets the short (background curve) time window (timecode, defaults to `00:00:00.010`)
 -   `-i size`, `--width size` sets the output width in pixels (defaults to `1280`)
 -   `-e size`, `--height size` sets the output height in pixels (defaults to `720`)
+-   `-h`, `--help` shows the help message
+
+## evt3_to_es
+
+evt3_to_es converts a raw file (EVT3) into an Event Stream file.
+
+```sh
+./evt3_to_es [options] /path/to/input.raw /path/to/output.es
+```
+
+Available options:
+
 -   `-h`, `--help` shows the help message
 
 ## rainmaker

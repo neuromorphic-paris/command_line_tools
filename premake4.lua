@@ -155,6 +155,28 @@ solution 'utilities'
             linkoptions {'-std=c++11'}
         configuration 'windows'
             files {'.clang-format'}
+    project 'evt3_to_es'
+        kind 'ConsoleApp'
+        language 'C++'
+        location 'build'
+        files {'source/evt3.hpp', 'source/evt3_to_es.cpp'}
+        configuration 'release'
+            targetdir 'build/release'
+            defines {'NDEBUG'}
+            flags {'OptimizeSpeed'}
+        configuration 'debug'
+            targetdir 'build/debug'
+            defines {'DEBUG'}
+            flags {'Symbols'}
+        configuration 'linux'
+            links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'rainbow'
         kind 'ConsoleApp'
         language 'C++'
