@@ -63,9 +63,9 @@ namespace evt3 {
                     } else if (words[0] == "geometry") {
                         const auto separator_position = words[1].find("x");
                         if (separator_position > 0 && separator_position != std::string::npos) {
-                            stream_header.width = static_cast<uint16_t>(stoul(words[0].substr(0, separator_position)));
+                            stream_header.width = static_cast<uint16_t>(stoul(words[1].substr(0, separator_position)));
                             stream_header.height =
-                                static_cast<uint16_t>(stoul(words[0].substr(separator_position + 1)));
+                                static_cast<uint16_t>(stoul(words[1].substr(separator_position + 1)));
                         }
                     }
                 } catch (const std::invalid_argument&) {
