@@ -152,6 +152,9 @@ void synth(
                 (1.0f - tracker_lambda) * row_trackers[event.y] + tracker_lambda * static_cast<float>(event.x);
         }
     });
+    if (mode == output_mode::carriage_return) {
+        std::cout << std::endl;
+    }
     output_stream->seekp(4, std::ostream::beg);
     write_le_uint32(*output_stream.get(), sample * 4 + 36);
     output_stream->seekp(40, std::ostream::beg);
