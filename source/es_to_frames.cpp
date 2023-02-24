@@ -359,7 +359,7 @@ int main(int argc, char* argv[]) {
         {"es_to_frames converts an Event Stream file to video frames",
          "    Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory",
          "    Otherwise, the output consists in raw rgb24 frames",
-         "Syntax: ./es_to_ppms [options]",
+         "Syntax: ./es_to_frames [options]",
          "Available options:",
          "    -i file, --input file                  sets the path to the input .es file",
          "                                               defaults to standard input",

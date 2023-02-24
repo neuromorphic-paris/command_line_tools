@@ -4,6 +4,7 @@ import pathlib
 import re
 import subprocess
 import sys
+import tempfile
 import typing
 
 dirname = pathlib.Path(__file__).resolve().parent
@@ -36,7 +37,7 @@ parser = argparse.ArgumentParser(
     description="Generate a frame-based video from an .es file, using es_to_frames and ffmpeg",
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
 )
-parser.add_argument("input", help="input .es file")
+parser.add_argument("input", help="input .es file or directory")
 parser.add_argument(
     "--output",
     "-o",
@@ -46,7 +47,6 @@ parser.add_argument(
     "--begin",
     "-b",
     type=timecode,
-    default=0,
     help="ignore events before this timestamp (timecode)",
 )
 parser.add_argument(
@@ -85,7 +85,7 @@ parser.add_argument(
     help="cumulative mapping maximum activity, defaults to automatic discard calculation",
 )
 parser.add_argument(
-    "--add-timecode", "-a", action="store_true", help="timecode overlay"
+    "--no-timecode", "-c", action="store_true", help="do not add a timecode overlay"
 )
 parser.add_argument(
     "--discard-ratio",
@@ -129,7 +129,7 @@ parser.add_argument(
     help="generate audio with 'synth'",
 )
 parser.add_argument(
-    "--skip-merge",
+    "--no-merge",
     action="store_true",
     help="do not merge audio and video",
 )
@@ -161,207 +161,354 @@ parser.add_argument(
     help="row tracker moving mean parameter",
 )
 parser.add_argument(
-    "--sonify-activity-tau", type=timecode, default=10000, help="row decay parameter in µs"
+    "--sonify-activity-tau",
+    type=timecode,
+    default=10000,
+    help="row decay parameter in µs",
 )
-
+parser.add_argument(
+    "--no-mp4",
+    action="store_true",
+    help="do not render mp4 videos",
+)
+parser.add_argument(
+    "--rainbow",
+    "-p",
+    action="store_true",
+    help="render rainbow plots",
+)
+parser.add_argument(
+    "--rainbow-alpha",
+    type=float,
+    default=0.1,
+    help="transparency level for each event in the rainbow plot",
+)
+parser.add_argument(
+    "--rainbow-idlecolor",
+    default="#292929",
+    help="background color for the rainbow plot",
+)
 args = parser.parse_args()
 
-input = pathlib.Path(args.input).resolve()
-if args.output is None:
-    range_string = ""
-    if args.begin > 0 or args.end is not None:
-        range_string += f"_begin={args.begin}"
-    if args.end is not None:
-        range_string += f"_end={args.end}"
-    if (args.frametime // 1e6) * 1e6 == args.frametime:
-        frametime = f"{args.frametime // 1000000}s"
-    elif (args.frametime // 1e3) * 1e3 == args.frametime:
-        frametime = f"{args.frametime // 1000}ms"
-    else:
-        frametime = f"{args.frametime}us"
-    if (args.tau // 1e6) * 1e6 == args.tau:
-        tau = f"{args.tau // 1000000}s"
-    elif (args.tau // 1e3) * 1e3 == args.tau:
-        tau = f"{args.tau // 1000}ms"
-    else:
-        tau = f"{args.tau}us"
-    sonify_suffix = "_sound" if args.sonify else ""
-    output = (
-        input.parent
-        / f"{input.stem}{range_string}_{args.style}_frametime={frametime}_tau={tau}{sonify_suffix}.mp4"
-    )
-else:
-    output = pathlib.Path(args.output).resolve()
-if input == output:
-    raise Exception("input and output must be different files")
-if not pathlib.Path(args.input).exists():
-    sys.stderr.write(f"{input} does not exist")
-if not pathlib.Path(args.input).is_file():
-    sys.stderr.write(f"{input} is not a file")
+no_merge = args.no_merge
+if args.no_mp4:
+    no_merge = True
+if args.no_mp4 and not args.rainbow and not args.sonify:
+    sys.stderr.write("--no-mp4 requires --rainbow or --sonify\n")
+    sys.exit(1)
 
-width, height = (
-    int(value)
-    for value in subprocess.run(
-        [str(dirname / "build" / "release" / "size"), str(input)],
-        check=True,
-        capture_output=True,
-    ).stdout.split(b"x")
-)
-
-es_to_frames_arguments = [
-    str(dirname / "build" / "release" / "es_to_frames"),
-    f"--input={str(input)}",
-    f"--begin={args.begin}",
-    f"--frametime={args.frametime}",
-    f"--style={args.style}",
-    f"--tau={args.tau}",
-    f"--oncolor={args.oncolor}",
-    f"--offcolor={args.offcolor}",
-    f"--idlecolor={args.idlecolor}",
-    f"--cumulative-ratio={args.cumulative_ratio}",
-    f"--discard-ratio={args.discard_ratio}",
-    f"--atiscolor={args.atiscolor}",
-]
-if args.end is not None:
-    es_to_frames_arguments.append(f"--end={args.end}")
-if args.lambda_max is not None:
-    es_to_frames_arguments.append(f"--lambda-max={args.lambda_max}")
-if args.add_timecode:
-    es_to_frames_arguments.append("--add-timecode")
-if args.white is not None:
-    es_to_frames_arguments.append(f"--white={args.white}")
-if args.black is not None:
-    es_to_frames_arguments.append(f"--black={args.black}")
-es_to_frames = subprocess.Popen(
-    es_to_frames_arguments,
-    stdout=subprocess.PIPE,
-)
-assert es_to_frames.stdout is not None
-
-ffmpeg = subprocess.Popen(
-    [
-        args.ffmpeg,
-        "-hide_banner",
-        "-loglevel",
-        "warning",
-        "-stats",
-        "-f",
-        "rawvideo",
-        "-s",
-        f"{width}x{height}",
-        "-framerate",
-        "50",
-        "-pix_fmt",
-        "rgb24",
-        "-i",
-        "-",
-        "-c:v",
-        "libx264",
-        "-pix_fmt",
-        "yuv420p",
-        "-crf",
-        str(args.h264_crf),
-        "-f",
-        "mp4",
-        "-y",
-        f"{output}.render",
-    ],
-    stdin=subprocess.PIPE,
-)
-assert ffmpeg.stdin is not None
-
-synth: typing.Optional[subprocess.Popen] = None
-if args.sonify:
-    synth_arguments = [
-        str(dirname / "build" / "release" / "synth"),
-        str(input),
-        f"{output.with_suffix('.wav')}.render",
-        "--output-mode=1",
-        f"--begin={args.begin}",
-        f"--amplitude-gain={args.sonify_amplitude_gain}",
-        f"--minimum-frequency={args.sonify_minimum_frequency}",
-        f"--maximum-frequency={args.sonify_maximum_frequency}",
-        f"--sampling-rate={args.sonify_sampling_rate}",
-        f"--tracker-lambda={args.sonify_tracker_lambda}",
-        f"--playback-speed={args.frametime / 20000.0}",
-        f"--activity-tau={args.sonify_activity_tau}",
-    ]
-    if args.end is not None:
-        synth_arguments.append(f"--end={args.end}")
-    synth = subprocess.Popen(
-        synth_arguments,
-        stdout=subprocess.PIPE,
-    )
+active: dict[str, typing.Optional[subprocess.Popen]] = {
+    "es_to_frames": None,
+    "ffmpeg": None,
+    "synth": None,
+}
 
 
 def cleanup():
-    es_to_frames.kill()
-    ffmpeg.kill()
-    if synth is not None:
-        synth.kill()
+    for name in list(active.keys()):
+        popen = active[name]
+        if popen is not None:
+            popen.kill()
+            active[name] = None
 
 
 atexit.register(cleanup)
 
-frame_size = width * height * 3
-while True:
-    frame = es_to_frames.stdout.read(frame_size)
-    if len(frame) != frame_size:
-        break
-    ffmpeg.stdin.write(frame)
 
-ffmpeg.stdin.close()
-es_to_frames.wait()
-ffmpeg.wait()
-
-if not args.sonify or args.skip_merge:
-    output.unlink(missing_ok=True)
-    pathlib.Path(f"{output}.render").rename(output)
-
-if synth is not None:
-    assert synth.stdout is not None
-    while True:
-        line = synth.stdout.readline()
-        if len(line) == 0:
-            sys.stdout.write(f"\n")
-            break
-        sys.stdout.write(f"\r{line[:-1].decode()}")
-        sys.stdout.flush()
-    synth.wait()
-
-    if args.skip_merge:
-        output.with_suffix(".wav").unlink(missing_ok=True)
-        pathlib.Path(f"{output.with_suffix('.wav')}.render").rename(
-            output.with_suffix(".wav")
-        )
+def render(
+    input_file: pathlib.Path,
+    output_file_or_directory: typing.Optional[pathlib.Path],
+):
+    print(f"\033[1m{input_file}\033[0m")
+    output_parent: typing.Optional[pathlib.Path]
+    if output_file_or_directory is None:
+        output_parent = input_file.parent
+    elif output_file_or_directory.is_dir():
+        output_parent = output_file_or_directory
     else:
-        ffmpeg = subprocess.Popen(
+        output_parent = None
+    range_string = ""
+    if args.begin is not None or args.end is not None:
+        range_string += f"_begin={0 if args.begin is None else args.begin}"
+    if args.end is not None:
+        range_string += f"_end={args.end}"
+    if (args.frametime // 1e6) * 1e6 == args.frametime:
+        frametime_string = f"{args.frametime // 1000000}s"
+    elif (args.frametime // 1e3) * 1e3 == args.frametime:
+        frametime_string = f"{args.frametime // 1000}ms"
+    else:
+        frametime_string = f"{args.frametime}us"
+    if (args.tau // 1e6) * 1e6 == args.tau:
+        tau_string = f"{args.tau // 1000000}s"
+    elif (args.tau // 1e3) * 1e3 == args.tau:
+        tau_string = f"{args.tau // 1000}ms"
+    else:
+        tau_string = f"{args.tau}us"
+    if output_parent is None:
+        assert output_file_or_directory is not None
+        rainbow_output_file = output_file_or_directory.with_suffix(".png")
+    else:
+        rainbow_output_file = (
+            output_parent / f"{input_file.stem}_alpha={args.rainbow_alpha}.png"
+        )
+    if args.rainbow:
+        print(f"🌈 {rainbow_output_file}")
+        if args.begin is None and args.end is None:
+            subprocess.run(
+                (
+                    str(dirname / "build" / "release" / "rainbow"),
+                    str(input_file),
+                    str(rainbow_output_file),
+                    f"--alpha={args.rainbow_alpha}",
+                    f"--idlecolor={args.rainbow_idlecolor}",
+                ),
+                check=True,
+            )
+        else:
+            with tempfile.TemporaryDirectory(
+                prefix="command-line-tools-render"
+            ) as temporary_directory_string:
+                temporary_directory = pathlib.Path(temporary_directory_string)
+                subprocess.run(
+                    (
+                        str(dirname / "build" / "release" / "cut"),
+                        str(input_file),
+                        str(temporary_directory / input_file.name),
+                        str(0 if args.begin is None else args.begin),
+                        str((2**64 - 1) if args.end is None else args.end),
+                        "--timestamp",
+                        "zero",
+                    ),
+                    check=True,
+                )
+                subprocess.run(
+                    (
+                        str(dirname / "build" / "release" / "rainbow"),
+                        str(temporary_directory / input_file.name),
+                        str(rainbow_output_file),
+                        f"--alpha={args.rainbow_alpha}",
+                        f"--idlecolor={args.rainbow_idlecolor}",
+                    ),
+                    check=True,
+                )
+    sonify_suffix = "_sound" if args.sonify else ""
+    if output_parent is None:
+        assert output_file_or_directory is not None
+        mp4_output = output_file_or_directory.with_suffix(".mp4")
+    else:
+        mp4_output = (
+            output_parent
+            / f"{input_file.stem}{range_string}_{args.style}_frametime={frametime_string}_tau={tau_string}{sonify_suffix}.mp4"
+        )
+    if not args.no_mp4:
+        if args.sonify:
+            print(f"🎬 {mp4_output} (video only)")
+        else:
+            print(f"🎬 {mp4_output}")
+        width, height = (
+            int(value)
+            for value in subprocess.run(
+                [str(dirname / "build" / "release" / "size"), str(input_file)],
+                check=True,
+                capture_output=True,
+            ).stdout.split(b"x")
+        )
+        es_to_frames_arguments = [
+            str(dirname / "build" / "release" / "es_to_frames"),
+            f"--input={str(input_file)}",
+            f"--begin={0 if args.begin is None else args.begin}",
+            f"--frametime={args.frametime}",
+            f"--style={args.style}",
+            f"--tau={args.tau}",
+            f"--oncolor={args.oncolor}",
+            f"--offcolor={args.offcolor}",
+            f"--idlecolor={args.idlecolor}",
+            f"--cumulative-ratio={args.cumulative_ratio}",
+            f"--discard-ratio={args.discard_ratio}",
+            f"--atiscolor={args.atiscolor}",
+        ]
+        if args.end is not None:
+            es_to_frames_arguments.append(f"--end={args.end}")
+        if args.lambda_max is not None:
+            es_to_frames_arguments.append(f"--lambda-max={args.lambda_max}")
+        if not args.no_timecode:
+            es_to_frames_arguments.append("--add-timecode")
+        if args.white is not None:
+            es_to_frames_arguments.append(f"--white={args.white}")
+        if args.black is not None:
+            es_to_frames_arguments.append(f"--black={args.black}")
+        active["es_to_frames"] = subprocess.Popen(
+            es_to_frames_arguments,
+            stdout=subprocess.PIPE,
+        )
+        assert active["es_to_frames"].stdout is not None
+        active["ffmpeg"] = subprocess.Popen(
             [
                 args.ffmpeg,
                 "-hide_banner",
                 "-loglevel",
                 "warning",
                 "-stats",
+                "-f",
+                "rawvideo",
+                "-s",
+                f"{width}x{height}",
+                "-framerate",
+                "50",
+                "-pix_fmt",
+                "rgb24",
                 "-i",
-                f"{output}.render",
-                "-guess_layout_max",
-                "0",
-                "-i",
-                f"{output.with_suffix('.wav')}.render",
-                "-af",
-                "pan=stereo| c0=c0 | c1=c1",
+                "-",
                 "-c:v",
-                "copy",
-                "-c:a",
-                "aac",
+                "libx264",
+                "-pix_fmt",
+                "yuv420p",
+                "-crf",
+                str(args.h264_crf),
                 "-f",
                 "mp4",
                 "-y",
-                f"{output}.merge",
+                f"{mp4_output}.render",
             ],
+            stdin=subprocess.PIPE,
         )
-        ffmpeg.wait()
-        output.unlink(missing_ok=True)
-        pathlib.Path(f"{output}.merge").rename(output)
-        pathlib.Path(f"{output}.render").unlink()
-        pathlib.Path(f"{output.with_suffix('.wav')}.render").unlink()
+        assert active["ffmpeg"].stdin is not None
+        frame_size = width * height * 3
+        while True:
+            frame = active["es_to_frames"].stdout.read(frame_size)
+            if len(frame) != frame_size:
+                break
+            active["ffmpeg"].stdin.write(frame)
+
+        active["ffmpeg"].stdin.close()
+        active["es_to_frames"].wait()
+        active["es_to_frames"] = None
+        active["ffmpeg"].wait()
+        active["ffmpeg"] = None
+        if not args.sonify or no_merge:
+            mp4_output.unlink(missing_ok=True)
+            pathlib.Path(f"{mp4_output}.render").rename(mp4_output)
+
+    if args.sonify:
+        if output_parent is None:
+            assert output_file_or_directory is not None
+            wav_output = output_file_or_directory.with_suffix(".wav")
+        else:
+            if args.no_mp4:
+                wav_output = (
+                    output_parent
+                    / f"{input_file.stem}{range_string}_frametime={frametime_string}.wav"
+                )
+            else:
+                wav_output = mp4_output.with_suffix(".wav")
+        print(f"🔊 {wav_output}")
+        synth_arguments = [
+            str(dirname / "build" / "release" / "synth"),
+            str(input_file),
+            f"{wav_output}.render",
+            "--output-mode=1",
+            f"--begin={0 if args.begin is None else args.begin}",
+            f"--amplitude-gain={args.sonify_amplitude_gain}",
+            f"--minimum-frequency={args.sonify_minimum_frequency}",
+            f"--maximum-frequency={args.sonify_maximum_frequency}",
+            f"--sampling-rate={args.sonify_sampling_rate}",
+            f"--tracker-lambda={args.sonify_tracker_lambda}",
+            f"--playback-speed={args.frametime / 20000.0}",
+            f"--activity-tau={args.sonify_activity_tau}",
+        ]
+        if args.end is not None:
+            synth_arguments.append(f"--end={args.end}")
+        active["synth"] = subprocess.Popen(
+            synth_arguments,
+            stdout=subprocess.PIPE,
+        )
+        assert active["synth"].stdout is not None
+        while True:
+            line = active["synth"].stdout.readline()
+            if len(line) == 0:
+                sys.stdout.write(f"\n")
+                break
+            sys.stdout.write(f"\r{line[:-1].decode()}")
+            sys.stdout.flush()
+        active["synth"].wait()
+        active["synth"] = None
+        if no_merge:
+            wav_output.unlink(missing_ok=True)
+            pathlib.Path(f"{wav_output}.render").rename(wav_output)
+        else:
+            print(f"🎬+🔊 {mp4_output}")
+            active["ffmpeg"] = subprocess.Popen(
+                [
+                    args.ffmpeg,
+                    "-hide_banner",
+                    "-loglevel",
+                    "warning",
+                    "-stats",
+                    "-i",
+                    f"{mp4_output}.render",
+                    "-guess_layout_max",
+                    "0",
+                    "-i",
+                    f"{wav_output}.render",
+                    "-af",
+                    "pan=stereo| c0=c0 | c1=c1",
+                    "-c:v",
+                    "copy",
+                    "-c:a",
+                    "aac",
+                    "-f",
+                    "mp4",
+                    "-y",
+                    f"{mp4_output}.merge",
+                ],
+            )
+            active["ffmpeg"].wait()
+            active["ffmpeg"] = None
+            mp4_output.unlink(missing_ok=True)
+            pathlib.Path(f"{mp4_output}.merge").rename(mp4_output)
+            pathlib.Path(f"{mp4_output}.render").unlink()
+            pathlib.Path(f"{wav_output}.render").unlink()
+
+
+def render_directory(
+    input_directory: pathlib.Path,
+    output_directory: pathlib.Path,
+):
+    children = []
+    for child in sorted(input_directory.iterdir()):
+        if child.is_dir():
+            children.append(child)
+        elif child.is_file() and child.suffix == ".es":
+            output_directory.mkdir(parents=True, exist_ok=True)
+            render(child, output_directory)
+    for child in children:
+        render_directory(child, output_directory / child.name)
+
+
+input = pathlib.Path(args.input).resolve()
+if input.is_dir():
+    if args.output is None:
+        render_directory(input, input)
+    else:
+        output = pathlib.Path(args.output).resolve()
+        if output.exists() and not output.is_dir():
+            sys.stderr.write(
+                "--output must be a directory (out of tree generation) or unspecified (in tree generation) if the input is a directory\n"
+            )
+            sys.exit(1)
+        render_directory(input, output)
+else:
+    if not pathlib.Path(args.input).exists():
+        sys.stderr.write(f"{input} does not exist\n")
+        sys.exit(1)
+    if not pathlib.Path(args.input).is_file():
+        sys.stderr.write(f"{input} is neither a file nor a directory\n")
+        sys.exit(1)
+    if args.output is None:
+        output = pathlib.Path(args.output).resolve()
+        if input == output:
+            sys.stderr.write("input and output must be different files\n")
+            sys.exit(1)
+        render(input, output)
+    else:
+        render(input, None)
