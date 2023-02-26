@@ -505,10 +505,10 @@ else:
         sys.stderr.write(f"{input} is neither a file nor a directory\n")
         sys.exit(1)
     if args.output is None:
+        render(input, None)
+    else:
         output = pathlib.Path(args.output).resolve()
         if input == output:
             sys.stderr.write("input and output must be different files\n")
             sys.exit(1)
         render(input, output)
-    else:
-        render(input, None)
