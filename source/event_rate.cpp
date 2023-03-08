@@ -12,11 +12,6 @@ constexpr float font_baseline_ratio = 0.3f;
 constexpr float font_width_ratio = 0.5f;
 constexpr float font_exponent_ratio = 0.8f;
 constexpr float font_exponent_baseline_ratio = 0.5f;
-const std::array<std::string, 2> curves_colors{"#4285F4", "#c4d7f5"};
-const std::string axis_color = "#000000";
-const std::string ticks_color = "#000000";
-const std::string main_grid_color = "#555555";
-const std::string secondary_grid_color = "#DDDDDD";
 
 /// event_rate represents a number of events per second.
 SEPIA_PACK(struct event_rate {
@@ -116,20 +111,75 @@ void compute_event_rate(
     }
 }
 
+struct color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    color(uint8_t default_r, uint8_t default_g, uint8_t default_b) : r(default_r), g(default_g), b(default_b) {}
+    color(const std::string& hexadecimal_string) {
+        if (hexadecimal_string.size() != 7 || hexadecimal_string.front() != '#'
+            || std::any_of(std::next(hexadecimal_string.begin()), hexadecimal_string.end(), [](char character) {
+                   return !std::isxdigit(character);
+               })) {
+            throw std::runtime_error("color must be formatted as #hhhhhh, where h is an hexadecimal digit");
+        }
+        r = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(1, 2), nullptr, 16));
+        g = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(3, 2), nullptr, 16));
+        b = static_cast<uint8_t>(std::stoul(hexadecimal_string.substr(5, 2), nullptr, 16));
+    }
+    uint8_t mix_r(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * r + lambda * other.r);
+    }
+    uint8_t mix_g(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * g + lambda * other.g);
+    }
+    uint8_t mix_b(color other, float lambda) {
+        return static_cast<uint8_t>((1.0f - lambda) * b + lambda * other.b);
+    }
+    std::string hex() {
+        std::stringstream stream;
+        stream << "#" << std::setw(2) << std::setfill('0') << std::hex << static_cast<int32_t>(r) << std::setw(2)
+               << std::setfill('0') << std::hex << static_cast<int32_t>(g) << std::setw(2) << std::setfill('0')
+               << std::hex << static_cast<int32_t>(b);
+        const auto result = stream.str();
+        return result;
+    }
+};
+
 int main(int argc, char* argv[]) {
     return pontella::main(
         {"event_rate plots the number of events per second (slidding time window).",
          "Syntax: ./event_rate [options] /path/to/input.es /path/to/output.svg",
          "Available options:",
-         "    -l tau, --long tau        sets the long (foreground curve) time window (timecode)",
-         "                                  defaults to 00:00:01.000",
-         "    -s tau, --short tau       sets the short (background curve) time window (timecode)",
-         "                                  defaults to 00:00:00.010",
-         "    -i size, --width size     sets the output width in pixels",
-         "                                  defaults to 1280",
-         "    -e size, --height size    sets the output height in pixels",
-         "                                  defaults to 720",
-         "    -h, --help                shows this help message"},
+         "    -l tau, --long tau                      sets the long (foreground curve) time window (timecode)",
+         "                                                defaults to 00:00:01.000",
+         "    -s tau, --short tau                     sets the short (background curve) time window (timecode)",
+         "                                                defaults to 00:00:00.010",
+         "    -i size, --width size                   sets the output width in pixels",
+         "                                                defaults to 1280",
+         "    -f size, --height size                  sets the output height in pixels",
+         "                                                defaults to 720",
+         "    -a color, --longcolor color             sets the color of the long time window curve",
+         "                                                color must be formatted as #hhhhhh,",
+         "                                                where h is an hexadecimal digit",
+         "                                                defaults to #4285F4",
+         "    -b color, --shortcolor color            sets the color of the short time window curve",
+         "                                                color must be formatted as #hhhhhh,",
+         "                                                where h is an hexadecimal digit",
+         "                                                defaults to #C4D7F5",
+         "    -c color, --axiscolor color             sets the axis and labels colors",
+         "                                                color must be formatted as #hhhhhh,",
+         "                                                where h is an hexadecimal digit",
+         "                                                defaults to #000000",
+         "    -d color, --maingridcolor color         sets the main logarithmic grid color",
+         "                                                color must be formatted as #hhhhhh,",
+         "                                                where h is an hexadecimal digit",
+         "                                                defaults to #555555",
+         "    -e color, --secondarygridcolor color    sets the secondary logarithmic grid color",
+         "                                                color must be formatted as #hhhhhh,",
+         "                                                where h is an hexadecimal digit",
+         "                                                defaults to #DDDDDD",
+         "    -h, --help                              shows this help message"},
         argc,
         argv,
         2,
@@ -137,7 +187,12 @@ int main(int argc, char* argv[]) {
             {"long", {"l"}},
             {"short", {"s"}},
             {"width", {"i"}},
-            {"height", {"e"}},
+            {"height", {"f"}},
+            {"longcolor", {"a"}},
+            {"shortcolor", {"b"}},
+            {"axiscolor", {"c"}},
+            {"maingridcolor", {"d"}},
+            {"secondarygridcolor", {"e"}},
         },
         {},
         [](pontella::command command) {
@@ -173,6 +228,41 @@ int main(int argc, char* argv[]) {
                 const auto name_and_argument = command.options.find("height");
                 if (name_and_argument != command.options.end()) {
                     height = std::stoull(name_and_argument->second);
+                }
+            }
+            color long_color(0x42, 0x85, 0xF4);
+            {
+                const auto name_and_argument = command.options.find("longcolor");
+                if (name_and_argument != command.options.end()) {
+                    long_color = color(name_and_argument->second);
+                }
+            }
+            color short_color(0xC4, 0xD7, 0xF5);
+            {
+                const auto name_and_argument = command.options.find("shortcolor");
+                if (name_and_argument != command.options.end()) {
+                    short_color = color(name_and_argument->second);
+                }
+            }
+            color axis_color(0x00, 0x00, 0x00);
+            {
+                const auto name_and_argument = command.options.find("axiscolor");
+                if (name_and_argument != command.options.end()) {
+                    axis_color = color(name_and_argument->second);
+                }
+            }
+            color main_grid_color(0x55, 0x55, 0x55);
+            {
+                const auto name_and_argument = command.options.find("maingridcolor");
+                if (name_and_argument != command.options.end()) {
+                    main_grid_color = color(name_and_argument->second);
+                }
+            }
+            color secondary_grid_color(0xDD, 0xDD, 0xDD);
+            {
+                const auto name_and_argument = command.options.find("secondarygridcolor");
+                if (name_and_argument != command.options.end()) {
+                    secondary_grid_color = color(name_and_argument->second);
                 }
             }
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
@@ -245,41 +335,42 @@ int main(int argc, char* argv[]) {
                 }
             }
             *output << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " << width << " "
-                    << height << "\">\n";
+                    << height << "\" style=\"background-color:#0E1A29;\">\n"; // @DEV
             for (uint32_t index = log_minimum + 1; index < log_maximum + 1; ++index) {
-                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color << "\" stroke-width=\"1\" d=\"M"
-                        << x_offset << "," << value_to_y(std::pow(10, index)) << " L" << (width - 1) << ","
-                        << value_to_y(std::pow(10, index)) << "\" />\n";
+                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
+                        << "\" stroke-width=\"1\" d=\"M" << x_offset << "," << value_to_y(std::pow(10, index)) << " L"
+                        << (width - 1) << "," << value_to_y(std::pow(10, index)) << "\" />\n";
             }
             for (uint32_t index = log_minimum; index < log_maximum + 1; ++index) {
                 const auto digits = std::to_string(index).size();
                 *output << "<text text-anchor=\"end\" x=\""
                         << x_offset - std::round((digits * font_exponent_ratio + 1) * font_size * font_width_ratio)
                         << "\" y=\"" << (value_to_y(std::pow(10, index)) + font_size * font_baseline_ratio)
-                        << "\" font-size=\"" << font_size << "px\" color=\"" << ticks_color << "\">10</text>\n";
+                        << "\" font-size=\"" << font_size << "px\" fill=\"" << axis_color.hex() << "\">10</text>\n";
                 *output << "<text text-anchor=\"end\" x=\"" << x_offset - std::round(font_size * font_width_ratio)
                         << "\" y=\""
                         << (value_to_y(std::pow(10, index))
                             + font_size * (font_baseline_ratio - font_exponent_baseline_ratio))
-                        << "\" font-size=\"" << std::round(font_size * font_exponent_ratio) << "px\" color=\""
-                        << ticks_color << "\">" << index << "</text>\n";
+                        << "\" font-size=\"" << std::round(font_size * font_exponent_ratio) << "px\" fill=\""
+                        << axis_color.hex() << "\">" << index << "</text>\n";
             }
             *output << "<text text-anchor=\"begin\" x=\"" << x_offset << "\" y=\""
                     << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
-                    << "px\" color=\"" << ticks_color << "\">" << timecode(first_and_last_t.first).to_timecode_string()
-                    << "</text>\n";
+                    << "px\" fill=\"" << axis_color.hex() << "\">"
+                    << timecode(first_and_last_t.first).to_timecode_string() << "</text>\n";
             *output << "<text text-anchor=\"end\" x=\"" << (width - 1) << "\" y=\""
                     << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
-                    << "px\" color=\"" << ticks_color << "\">" << timecode(first_and_last_t.second).to_timecode_string()
-                    << "</text>\n";
+                    << "px\" fill=\"" << axis_color.hex() << "\">"
+                    << timecode(first_and_last_t.second).to_timecode_string() << "</text>\n";
             for (uint32_t index = log_minimum; index < log_maximum; ++index) {
                 for (uint32_t multiplier = 2; multiplier < 10; ++multiplier) {
-                    *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color
+                    *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color.hex()
                             << "\"  stroke-width=\"1\" d=\"M" << x_offset << ","
                             << value_to_y(std::pow(10, index) * multiplier) << " L" << (width - 1) << ","
                             << value_to_y(std::pow(10, index) * multiplier) << "\" />\n";
                 }
             }
+            std::array<std::string, 2> curves_colors{long_color.hex(), short_color.hex()};
             for (const std::size_t index : {1, 0}) {
                 *output << "<path fill=\"" << curves_colors[index] << "\" stroke=\"" << curves_colors[index]
                         << "\" stroke-width=\"" << curves_strokes[index] << "\" d=\"";
@@ -295,8 +386,8 @@ int main(int argc, char* argv[]) {
                 }
                 *output << "Z\" />\n";
             }
-            *output << "<path fill=\"#00000000\" stroke=\"" << axis_color << "\" stroke-width=\"2\" d=\"M" << x_offset
-                    << ",0 L" << x_offset << "," << (height - y_offset) << " L" << (width - 1) << ","
+            *output << "<path fill=\"#00000000\" stroke=\"" << axis_color.hex() << "\" stroke-width=\"2\" d=\"M"
+                    << x_offset << ",0 L" << x_offset << "," << (height - y_offset) << " L" << (width - 1) << ","
                     << (height - 1 - y_offset) << "\" />\n";
             *output << "</svg>";
         });

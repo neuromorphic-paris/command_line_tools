@@ -60,6 +60,14 @@ struct color {
     uint8_t mix_b(color other, float lambda) {
         return static_cast<uint8_t>((1.0f - lambda) * b + lambda * other.b);
     }
+    std::string hex() {
+        std::stringstream stream;
+        stream << "#" << std::setw(2) << std::setfill('0') << std::hex << static_cast<int32_t>(r) << std::setw(2)
+               << std::setfill('0') << std::hex << static_cast<int32_t>(g) << std::setw(2) << std::setfill('0')
+               << std::hex << static_cast<int32_t>(b);
+        const auto result = stream.str();
+        return result;
+    }
 };
 
 class frame {
