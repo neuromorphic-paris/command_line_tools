@@ -335,7 +335,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             *output << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " << width << " "
-                    << height << "\" style=\"background-color:#0E1A29;\">\n"; // @DEV
+                    << height << "\">\n";
             for (uint32_t index = log_minimum + 1; index < log_maximum + 1; ++index) {
                 *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
                         << "\" stroke-width=\"1\" d=\"M" << x_offset << "," << value_to_y(std::pow(10, index)) << " L"
