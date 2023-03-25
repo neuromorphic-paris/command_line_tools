@@ -2,6 +2,7 @@
 
 #include "../third_party/sepia/source/sepia.hpp"
 #include <algorithm>
+#include <iostream>
 
 namespace evt3 {
     /// header bundles a .dat file header's information.
@@ -37,7 +38,7 @@ namespace evt3 {
                    });
                })) {
             stream.seekg(0, std::istream::beg);
-            return {640, 480};
+            return {1280, 720};
         }
         header stream_header{0, 0};
         for (const auto& header_line : header_lines) {
@@ -74,8 +75,8 @@ namespace evt3 {
             }
         }
         if (stream_header.width == 0 || stream_header.height == 0) {
-            stream_header.width = 640;
-            stream_header.height = 480;
+            stream_header.width = 1280;
+            stream_header.height = 720;
         }
         return stream_header;
     }
@@ -93,27 +94,31 @@ namespace evt3 {
             stream.read(reinterpret_cast<char*>(bytes.data()), bytes.size());
             for (std::size_t index = 0; index < (stream.gcount() / 2) * 2; index += 2) {
                 switch (bytes[index + 1] >> 4) {
-                    case 0b0000:
+                    case 0b0000: // EVT_ADDR_Y
                         event.y = static_cast<uint16_t>(
                             stream_header.height - 1
                             - (bytes[index] | (static_cast<uint16_t>(bytes[index + 1] & 0b111) << 8)));
                         break;
                     case 0b0001:
                         break;
-                    case 0b0010:
+                    case 0b0010: // EVT_ADDR_X
                         event.x = static_cast<uint16_t>(
                             bytes[index] | (static_cast<uint16_t>(bytes[index + 1] & 0b111) << 8));
                         event.is_increase = ((bytes[index + 1] >> 3) & 1) == 1;
                         if (event.x < stream_header.width && event.y < stream_header.height) {
                             handle_event(event);
+                        } else {
+                            std::cerr << "out of bounds event (t=" << event.t << ", x=" << event.x << ", y=" << event.y
+                                                                    << ", on=" << (event.is_increase ? "true" : "false") << ")"
+                                                                    << std::endl;
                         }
                         break;
-                    case 0b0011:
+                    case 0b0011: // VECT_BASE_X
                         event.x = static_cast<uint16_t>(
                             bytes[index] | (static_cast<uint16_t>(bytes[index + 1] & 0b111) << 8));
                         event.is_increase = ((bytes[index + 1] >> 3) & 1) == 1;
                         break;
-                    case 0b0100:
+                    case 0b0100: // VECT_12
                         for (uint8_t bit = 0; bit < 8; ++bit) {
                             if (((bytes[index] >> bit) & 1) == 1) {
                                 if (event.x < stream_header.width && event.y < stream_header.height) {
@@ -131,7 +136,7 @@ namespace evt3 {
                             ++event.x;
                         }
                         break;
-                    case 0b0101:
+                    case 0b0101: // VECT_8
                         for (uint8_t bit = 0; bit < 8; ++bit) {
                             if (((bytes[index] >> bit) & 1) == 1) {
                                 if (event.x < stream_header.width && event.y < stream_header.height) {
@@ -141,7 +146,7 @@ namespace evt3 {
                             ++event.x;
                         }
                         break;
-                    case 0b0110: {
+                    case 0b0110: { // EVT_TIME_LOW
                         const auto lsb_t = static_cast<uint32_t>(
                             bytes[index] | (static_cast<uint32_t>(bytes[index + 1] & 0b1111) << 8));
                         if (lsb_t != previous_lsb_t) {
@@ -156,7 +161,7 @@ namespace evt3 {
                     }
                     case 0b0111:
                         break;
-                    case 0b1000: {
+                    case 0b1000: { // EVT_TIME_HIGH
                         const auto msb_t = static_cast<uint32_t>(
                             bytes[index] | (static_cast<uint32_t>(bytes[index + 1] & 0b1111) << 8));
                         if (msb_t != previous_msb_t) {
@@ -181,7 +186,7 @@ namespace evt3 {
                     }
                     case 0b1001:
                         break;
-                    case 0b1010:
+                    case 0b1010: // EXT_TRIGGER
                         break;
                     case 0b1011:
                     case 0b1100:

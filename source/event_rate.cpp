@@ -24,9 +24,15 @@ template <sepia::type event_stream_type>
 std::pair<uint64_t, uint64_t> typed_t_range(std::unique_ptr<std::istream> stream) {
     std::pair<uint64_t, uint64_t> result{std::numeric_limits<uint64_t>::max(), 0};
     sepia::join_observable<event_stream_type>(std::move(stream), [&](sepia::event<event_stream_type> event) {
-        result.first = std::min(result.first, event.t);
-        result.second = std::max(result.second, event.t);
+        if (result.first == std::numeric_limits<uint64_t>::max()) {
+            result.first = event.t;
+        }
+        result.second = event.t;
     });
+    if (result.first == std::numeric_limits<uint64_t>::max()) {
+        result.first = 0;
+    }
+    ++result.second;
     return result;
 }
 
@@ -49,12 +55,23 @@ std::pair<uint64_t, uint64_t> t_range(const sepia::header& header, std::unique_p
 
 /// compute_event_rate calculates the event rate.
 template <sepia::type event_stream_type, typename HandleEventRate>
-void typed_compute_event_rate(std::unique_ptr<std::istream> stream, uint64_t tau, HandleEventRate&& handle_event_rate) {
+void typed_compute_event_rate(
+    std::unique_ptr<std::istream> stream,
+    uint64_t begin_t,
+    uint64_t end_t,
+    uint64_t tau,
+    HandleEventRate&& handle_event_rate) {
     const auto time_scale = 1e6 / static_cast<double>(tau);
     std::deque<uint64_t> ts;
     uint64_t previous_t = 0;
     auto first_t = std::numeric_limits<uint64_t>::max();
     sepia::join_observable<event_stream_type>(std::move(stream), [&](sepia::event<event_stream_type> event) {
+        if (event.t < begin_t) {
+            return;
+        }
+        if (event.t >= end_t) {
+            throw sepia::end_of_file();
+        }
         if (first_t == std::numeric_limits<uint64_t>::max()) {
             first_t = event.t;
         }
@@ -85,27 +102,29 @@ template <typename HandleEventRate>
 void compute_event_rate(
     const sepia::header& header,
     std::unique_ptr<std::istream> stream,
+    uint64_t begin_t,
+    uint64_t end_t,
     uint64_t tau,
     HandleEventRate&& handle_event_rate) {
     switch (header.event_stream_type) {
         case sepia::type::generic: {
             typed_compute_event_rate<sepia::type::generic>(
-                std::move(stream), tau, std::forward<HandleEventRate>(handle_event_rate));
+                std::move(stream), begin_t, end_t, tau, std::forward<HandleEventRate>(handle_event_rate));
             break;
         }
         case sepia::type::dvs: {
             typed_compute_event_rate<sepia::type::dvs>(
-                std::move(stream), tau, std::forward<HandleEventRate>(handle_event_rate));
+                std::move(stream), begin_t, end_t, tau, std::forward<HandleEventRate>(handle_event_rate));
             break;
         }
         case sepia::type::atis: {
             typed_compute_event_rate<sepia::type::atis>(
-                std::move(stream), tau, std::forward<HandleEventRate>(handle_event_rate));
+                std::move(stream), begin_t, end_t, tau, std::forward<HandleEventRate>(handle_event_rate));
             break;
         }
         case sepia::type::color: {
             typed_compute_event_rate<sepia::type::color>(
-                std::move(stream), tau, std::forward<HandleEventRate>(handle_event_rate));
+                std::move(stream), begin_t, end_t, tau, std::forward<HandleEventRate>(handle_event_rate));
             break;
         }
     }
@@ -151,31 +170,35 @@ int main(int argc, char* argv[]) {
         {"event_rate plots the number of events per second (slidding time window).",
          "Syntax: ./event_rate [options] /path/to/input.es /path/to/output.svg",
          "Available options:",
+         "    -b timestamp, --begin timestamp         ignores events before this timestamp (timecode)",
+         "                                                defaults to 00:00:00",
+         "    -e timestamp, --end timestamp           ignores events after this timestamp (timecode)",
+         "                                                defaults to the end of the recording",
          "    -l tau, --long tau                      sets the long (foreground curve) time window (timecode)",
          "                                                defaults to 00:00:01.000",
          "    -s tau, --short tau                     sets the short (background curve) time window (timecode)",
          "                                                defaults to 00:00:00.010",
-         "    -i size, --width size                   sets the output width in pixels",
+         "    -x size, --width size                   sets the output width in pixels",
          "                                                defaults to 1280",
-         "    -f size, --height size                  sets the output height in pixels",
+         "    -y size, --height size                  sets the output height in pixels",
          "                                                defaults to 720",
          "    -a color, --longcolor color             sets the color of the long time window curve",
          "                                                color must be formatted as #hhhhhh,",
          "                                                where h is an hexadecimal digit",
          "                                                defaults to #4285F4",
-         "    -b color, --shortcolor color            sets the color of the short time window curve",
+         "    -c color, --shortcolor color            sets the color of the short time window curve",
          "                                                color must be formatted as #hhhhhh,",
          "                                                where h is an hexadecimal digit",
          "                                                defaults to #C4D7F5",
-         "    -c color, --axiscolor color             sets the axis and labels colors",
+         "    -d color, --axiscolor color             sets the axis and labels colors",
          "                                                color must be formatted as #hhhhhh,",
          "                                                where h is an hexadecimal digit",
          "                                                defaults to #000000",
-         "    -d color, --maingridcolor color         sets the main logarithmic grid color",
+         "    -f color, --maingridcolor color         sets the main logarithmic grid color",
          "                                                color must be formatted as #hhhhhh,",
          "                                                where h is an hexadecimal digit",
          "                                                defaults to #555555",
-         "    -e color, --secondarygridcolor color    sets the secondary logarithmic grid color",
+         "    -g color, --secondarygridcolor color    sets the secondary logarithmic grid color",
          "                                                color must be formatted as #hhhhhh,",
          "                                                where h is an hexadecimal digit",
          "                                                defaults to #DDDDDD",
@@ -184,18 +207,37 @@ int main(int argc, char* argv[]) {
         argv,
         2,
         {
+            {"begin", {"b"}},
+            {"end", {"e"}},
             {"long", {"l"}},
             {"short", {"s"}},
-            {"width", {"i"}},
-            {"height", {"f"}},
+            {"width", {"x"}},
+            {"height", {"y"}},
             {"longcolor", {"a"}},
-            {"shortcolor", {"b"}},
-            {"axiscolor", {"c"}},
-            {"maingridcolor", {"d"}},
-            {"secondarygridcolor", {"e"}},
+            {"shortcolor", {"c"}},
+            {"axiscolor", {"d"}},
+            {"maingridcolor", {"f"}},
+            {"secondarygridcolor", {"g"}},
         },
         {},
         [](pontella::command command) {
+            uint64_t begin_t = 0;
+            {
+                const auto name_and_argument = command.options.find("begin");
+                if (name_and_argument != command.options.end()) {
+                    begin_t = timecode(name_and_argument->second).value();
+                }
+            }
+            auto end_t = std::numeric_limits<uint64_t>::max();
+            {
+                const auto name_and_argument = command.options.find("end");
+                if (name_and_argument != command.options.end()) {
+                    end_t = timecode(name_and_argument->second).value();
+                    if (end_t <= begin_t) {
+                        throw std::runtime_error("end must be strictly larger than begin");
+                    }
+                }
+            }
             uint64_t long_tau = 1000000;
             {
                 const auto name_and_argument = command.options.find("long");
@@ -267,12 +309,20 @@ int main(int argc, char* argv[]) {
             }
             const auto header = sepia::read_header(sepia::filename_to_ifstream(command.arguments[0]));
             auto output = sepia::filename_to_ofstream(command.arguments[1]);
-            const auto first_and_last_t = t_range(header, sepia::filename_to_ifstream(command.arguments[0]));
-            if (first_and_last_t.first == std::numeric_limits<uint64_t>::max()) {
-                throw std::runtime_error("the stream contains no events");
+            std::pair<uint64_t, uint64_t> first_and_last_t{begin_t, end_t};
+            if (command.options.find("begin") == command.options.end()
+                || command.options.find("end") == command.options.end()) {
+                const auto recording_first_and_last_t =
+                    t_range(header, sepia::filename_to_ifstream(command.arguments[0]));
+                if (command.options.find("begin") == command.options.end()) {
+                    first_and_last_t.first = recording_first_and_last_t.first;
+                }
+                if (command.options.find("end") == command.options.end()) {
+                    first_and_last_t.second = recording_first_and_last_t.second;
+                }
             }
-            if (first_and_last_t.first == first_and_last_t.second) {
-                throw std::runtime_error("all the events have the same timestamp");
+            if (first_and_last_t.second <= first_and_last_t.first) {
+                throw std::runtime_error("begin must be smaller than than the end of the recording");
             }
             double minimum = std::numeric_limits<double>::infinity();
             double maximum = -std::numeric_limits<double>::infinity();
@@ -286,7 +336,12 @@ int main(int argc, char* argv[]) {
                 const auto pixel_window = static_cast<uint64_t>(std::round(
                     static_cast<double>(first_and_last_t.second - first_and_last_t.first) / (width - 1 - x_offset)));
                 compute_event_rate(
-                    header, sepia::filename_to_ifstream(command.arguments[0]), tau, [&](event_rate event) {
+                    header,
+                    sepia::filename_to_ifstream(command.arguments[0]),
+                    begin_t,
+                    end_t,
+                    tau,
+                    [&](event_rate event) {
                         if (event.value > 0.0) {
                             minimum = std::min(minimum, event.value);
                         }

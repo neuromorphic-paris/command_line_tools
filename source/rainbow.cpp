@@ -64,7 +64,7 @@ std::vector<uint8_t> rainbow(
     std::pair<uint64_t, uint64_t> begin_t_and_end_t) {
     const auto t_scale = parula_colors.size() / static_cast<float>(begin_t_and_end_t.second - begin_t_and_end_t.first);
     auto t_to_color = [=](uint64_t t) {
-        const auto theta = (t - begin_t_and_end_t.first) * t_scale;
+        const auto theta = ((t - begin_t_and_end_t.first) % 5000) / 5000.0 * parula_colors.size();
         const auto theta_integer = static_cast<uint16_t>(std::floor(theta));
         if (theta_integer >= parula_colors.size() - 1) {
             return parula_colors[parula_colors.size() - 1];
