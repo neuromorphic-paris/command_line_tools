@@ -60,6 +60,13 @@ parser.add_argument(
     help="time between two frames in µs",
 )
 parser.add_argument(
+    "--scale",
+    "-c",
+    type=int,
+    default=1,
+    help="scale up the output by this integer factor",
+)
+parser.add_argument(
     "--style",
     "-s",
     choices=["exponential", "linear", "window", "cumulative", "cumulative-shared"],
@@ -71,7 +78,7 @@ parser.add_argument(
 )
 parser.add_argument("--oncolor", "-j", default="#f4c20d", help="color for ON events")
 parser.add_argument("--offcolor", "-k", default="#1e88e5", help="color for OFF events")
-parser.add_argument("--idlecolor", "-l", default="#292929", help="background color")
+parser.add_argument("--idlecolor", "-l", default="#191919", help="background color")
 parser.add_argument(
     "--cumulative-ratio",
     "-m",
@@ -85,7 +92,7 @@ parser.add_argument(
     help="cumulative mapping maximum activity, defaults to automatic discard calculation",
 )
 parser.add_argument(
-    "--no-timecode", "-c", action="store_true", help="do not add a timecode overlay"
+    "--no-timecode", "-a", action="store_true", help="do not add a timecode overlay"
 )
 parser.add_argument(
     "--discard-ratio",
@@ -185,7 +192,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--rainbow-idlecolor",
-    default="#292929",
+    default="#191919",
     help="background color for the rainbow plot",
 )
 args = parser.parse_args()
@@ -313,11 +320,14 @@ def render(
                 capture_output=True,
             ).stdout.split(b"x")
         )
+        width *= args.scale
+        height *= args.scale
         es_to_frames_arguments = [
             str(dirname / "build" / "release" / "es_to_frames"),
             f"--input={str(input_file)}",
             f"--begin={0 if args.begin is None else args.begin}",
             f"--frametime={args.frametime}",
+            f"--scale={args.scale}",
             f"--style={args.style}",
             f"--tau={args.tau}",
             f"--oncolor={args.oncolor}",

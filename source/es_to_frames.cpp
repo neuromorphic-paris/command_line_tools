@@ -72,7 +72,8 @@ struct color {
 
 class frame {
     public:
-    frame(uint16_t width, uint16_t height) : _width(width), _height(height), _bytes(width * height * 3) {}
+    frame(uint16_t width, uint16_t height, uint16_t scale) :
+        _width(width * scale), _height(height * scale), _scale(scale), _bytes((width * scale) * (height * scale) * 3) {}
     frame(const frame&) = delete;
     frame(frame&& other) = delete;
     frame& operator=(const frame&) = delete;
@@ -147,12 +148,21 @@ class frame {
             for (uint16_t y = 0; y < height; ++y) {
                 for (uint16_t x = 0; x < width; ++x) {
                     const auto lambda_and_on = lambdas_and_ons[x + y * width];
-                    const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
                     const auto scaled_lambda =
                         lambda_and_on.first > lambda_maximum ? 1.0 : lambda_and_on.first / lambda_maximum;
-                    _bytes[index] = idle_color.mix_r(lambda_and_on.second ? on_color : off_color, scaled_lambda);
-                    _bytes[index + 1] = idle_color.mix_g(lambda_and_on.second ? on_color : off_color, scaled_lambda);
-                    _bytes[index + 2] = idle_color.mix_b(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    const auto r = idle_color.mix_r(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    const auto g = idle_color.mix_g(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    const auto b = idle_color.mix_b(lambda_and_on.second ? on_color : off_color, scaled_lambda);
+                    for (uint16_t y_scale = 0; y_scale < _scale; ++y_scale) {
+                        for (uint16_t x_scale = 0; x_scale < _scale; ++x_scale) {
+                            const auto index = ((x + x_offset) * _scale + x_scale
+                                                + (_height - _scale - (y + y_offset) * _scale + y_scale) * _width)
+                                               * 3;
+                            _bytes[index] = r;
+                            _bytes[index + 1] = g;
+                            _bytes[index + 2] = b;
+                        }
+                    }
                 }
             }
         } else {
@@ -179,10 +189,19 @@ class frame {
                                 break;
                         }
                     }
-                    const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
-                    _bytes[index] = idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
-                    _bytes[index + 1] = idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
-                    _bytes[index + 2] = idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
+                    const auto r = idle_color.mix_r(t_and_on.second ? on_color : off_color, lambda);
+                    const auto g = idle_color.mix_g(t_and_on.second ? on_color : off_color, lambda);
+                    const auto b = idle_color.mix_b(t_and_on.second ? on_color : off_color, lambda);
+                    for (uint16_t y_scale = 0; y_scale < _scale; ++y_scale) {
+                        for (uint16_t x_scale = 0; x_scale < _scale; ++x_scale) {
+                            const auto index = ((x + x_offset) * _scale + x_scale
+                                                + (_height - _scale - (y + y_offset) * _scale + y_scale) * _width)
+                                               * 3;
+                            _bytes[index] = r;
+                            _bytes[index + 1] = g;
+                            _bytes[index + 2] = b;
+                        }
+                    }
                 }
             }
         }
@@ -237,12 +256,18 @@ class frame {
         }
         for (uint16_t y = 0; y < height; ++y) {
             for (uint16_t x = 0; x < width; ++x) {
-                const auto index = (x + x_offset + (_height - 1 - (y + y_offset)) * _width) * 3;
                 const auto delta_t = delta_ts[x + y * width];
                 if (delta_t == std::numeric_limits<uint64_t>::max()) {
-                    _bytes[index] = atis_color.r;
-                    _bytes[index + 1] = atis_color.g;
-                    _bytes[index + 2] = atis_color.b;
+                    for (uint16_t y_scale = 0; y_scale < _scale; ++y_scale) {
+                        for (uint16_t x_scale = 0; x_scale < _scale; ++x_scale) {
+                            const auto index = ((x + x_offset) * _scale + x_scale
+                                                + (_height - _scale - (y + y_offset) * _scale + y_scale) * _width)
+                                               * 3;
+                            _bytes[index] = atis_color.r;
+                            _bytes[index + 1] = atis_color.g;
+                            _bytes[index + 2] = atis_color.b;
+                        }
+                    }
                 } else {
                     uint8_t value = 0;
                     if (delta_t > 0) {
@@ -253,9 +278,16 @@ class frame {
                             value = static_cast<uint8_t>((slope * luminance + intercept) * 255.0f);
                         }
                     }
-                    _bytes[index] = value;
-                    _bytes[index + 1] = value;
-                    _bytes[index + 2] = value;
+                    for (uint16_t y_scale = 0; y_scale < _scale; ++y_scale) {
+                        for (uint16_t x_scale = 0; x_scale < _scale; ++x_scale) {
+                            const auto index = ((x + x_offset) * _scale + x_scale
+                                                + (_height - _scale - (y + y_offset) * _scale + y_scale) * _width)
+                                               * 3;
+                            _bytes[index] = value;
+                            _bytes[index + 1] = value;
+                            _bytes[index + 2] = value;
+                        }
+                    }
                 }
             }
         }
@@ -358,6 +390,7 @@ class frame {
     protected:
     const uint16_t _width;
     const uint16_t _height;
+    const uint16_t _scale;
     std::vector<uint8_t> _bytes;
     std::unique_ptr<stbtt_fontinfo> _fontinfo;
 };
@@ -379,6 +412,8 @@ int main(int argc, char* argv[]) {
          "                                               defaults to the end of the recording",
          "    -f frametime, --frametime frametime    sets the time between two frames (timecode)",
          "                                               defaults to 00:00:00.020",
+         "    -c scale, --scale scale                scale up the output by the given integer factor",
+         "                                               defaults to 1",
          "    -s style, --style style                selects the decay function",
          "                                               one of exponential (default), linear, window,",
          "                                               cumulative, cumulative-shared",
@@ -400,7 +435,7 @@ int main(int argc, char* argv[]) {
          "    -l color, --idlecolor color            sets the background color",
          "                                               color must be formatted as #hhhhhh,",
          "                                               where h is an hexadecimal digit",
-         "                                               defaults to #292929",
+         "                                               defaults to #191919",
          "    -m ratio, --cumulative-ratio ratio     sets the ratio of pixels discarded for cumulative mapping",
          "                                               ignored if the style type is not",
          "                                               cumulative or cumulative-shared",
@@ -435,6 +470,7 @@ int main(int argc, char* argv[]) {
             {"begin", {"b"}},
             {"end", {"e"}},
             {"frametime", {"f"}},
+            {"scale", {"c"}},
             {"style", {"s"}},
             {"tau", {"t"}},
             {"oncolor", {"j"}},
@@ -477,6 +513,17 @@ int main(int argc, char* argv[]) {
                     if (frametime == 0) {
                         throw std::runtime_error("the frametime must be larger than 0");
                     }
+                }
+            }
+            uint16_t scale = 1;
+            {
+                const auto name_and_argument = command.options.find("scale");
+                if (name_and_argument != command.options.end()) {
+                    const auto scale_candidate = std::stoull(name_and_argument->second);
+                    if (scale_candidate == 0 || scale_candidate >= 65536) {
+                        throw std::runtime_error("scale must be larger than 0 and smaller than 65536");
+                    }
+                    scale = static_cast<uint16_t>(scale_candidate);
                 }
             }
             color on_color(0xf4, 0xc2, 0x0d);
@@ -601,7 +648,7 @@ int main(int argc, char* argv[]) {
                     }
                     uint64_t frame_index = 0;
                     auto first_t = std::numeric_limits<uint64_t>::max();
-                    frame output_frame(header.width, header.height);
+                    frame output_frame(header.width, header.height, scale);
                     sepia::join_observable<sepia::type::dvs>(std::move(input), header, [&](sepia::dvs_event event) {
                         if (event.t < begin_t) {
                             return;
@@ -740,7 +787,7 @@ int main(int argc, char* argv[]) {
                     std::vector<uint64_t> delta_ts(header.width * header.height, std::numeric_limits<uint64_t>::max());
                     uint64_t frame_index = 0;
                     auto first_t = std::numeric_limits<uint64_t>::max();
-                    frame output_frame(header.width * 2, header.height);
+                    frame output_frame(header.width * 2, header.height, scale);
                     sepia::join_observable<sepia::type::atis>(
                         std::move(input),
                         header,

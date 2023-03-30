@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
          "    -l color, --idlecolor color    sets the background color",
          "                                       color must be formatted as #hhhhhh,",
          "                                       where h is an hexadecimal digit",
-         "                                       defaults to #292929",
+         "                                       defaults to #191919",
          "    -h, --help                     shows this help message"},
         argc,
         argv,

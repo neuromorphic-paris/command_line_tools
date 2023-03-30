@@ -109,8 +109,7 @@ namespace evt3 {
                             handle_event(event);
                         } else {
                             std::cerr << "out of bounds event (t=" << event.t << ", x=" << event.x << ", y=" << event.y
-                                                                    << ", on=" << (event.is_increase ? "true" : "false") << ")"
-                                                                    << std::endl;
+                                      << ", on=" << (event.is_increase ? "true" : "false") << ")" << std::endl;
                         }
                         break;
                     case 0b0011: // VECT_BASE_X

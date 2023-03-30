@@ -190,7 +190,7 @@ Available options:
     -   if `style` is `cumulative-shared`, the time window is set to `parameter`
 -   `-j color`, `--oncolor color` sets the color for ON events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#f4c20d`)
 -   `-k color`, `--offcolor color` sets the color for OFF events (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#1e88e5`)
--   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#292929`)
+-   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#191919`)
 -   `-r ratio`, `--discard-ratio ratio` sets the ratio of pixels discarded for cumulative mapping, ignored if the style is cumulative or cumulative-shared (defaults to 0.01)
 -   `-a`, `--add-timecode` adds a timecode overlay
 -   `-d digits`, `--digits digits` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
@@ -290,7 +290,7 @@ rainbow represents events by mapping time to colors.
 Available options:
 
 -   `-a alpha`, `--alpha alpha` sets the transparency level for each event (must be in the range ]0, 1], defaults to `0.1`)
--   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#292929`)
+-   `-l color`, `--idlecolor color` sets the background color (color must be formatted as `#hhhhhh` where `h` is an hexadecimal digit, defaults to `#191919`)
 -   `-h`, `--help` shows the help message
 
 ## size

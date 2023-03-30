@@ -358,7 +358,7 @@ int main(int argc, char* argv[]) {
                     {"color_axis", html::variable(std::string(dark ? "#bbbbbb" : "#334d5c"))},
                     {"color_link", html::variable(std::string(dark ? "#005cb2" : "#334d5c"))},
                     {"color_active", html::variable(std::string(dark ? "#1e88e5" : "#008cff"))},
-                    {"color_background", html::variable(std::string(dark ? "#292929" : "#ffffff"))},
+                    {"color_background", html::variable(std::string(dark ? "#191919" : "#ffffff"))},
                     {"color_separator", html::variable(std::string(dark ? "#494949" : "#e8e8e8"))},
                     {"color_controls_background", html::variable(std::string(dark ? "#393939" : "#fafafa"))},
                     {"color_nolink", html::variable(std::string(dark ? "#888888" : "#b4b4b4"))},
