@@ -397,7 +397,7 @@ def render(
         active["ffmpeg"] = None
         if not args.sonify or no_merge:
             mp4_output.unlink(missing_ok=True)
-            pathlib.Path(f"{mp4_output}.render").rename(mp4_output)
+            pathlib.Path(f"{mp4_output}.render").replace(mp4_output)
 
     if args.sonify:
         if output_parent is None:
@@ -444,7 +444,7 @@ def render(
         active["synth"] = None
         if no_merge:
             wav_output.unlink(missing_ok=True)
-            pathlib.Path(f"{wav_output}.render").rename(wav_output)
+            pathlib.Path(f"{wav_output}.render").replace(wav_output)
         else:
             print(f"🎬+🔊 {mp4_output}")
             active["ffmpeg"] = subprocess.Popen(
@@ -475,7 +475,7 @@ def render(
             active["ffmpeg"].wait()
             active["ffmpeg"] = None
             mp4_output.unlink(missing_ok=True)
-            pathlib.Path(f"{mp4_output}.merge").rename(mp4_output)
+            pathlib.Path(f"{mp4_output}.merge").replace(mp4_output)
             pathlib.Path(f"{mp4_output}.render").unlink()
             pathlib.Path(f"{wav_output}.render").unlink()
 
