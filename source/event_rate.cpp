@@ -4,10 +4,12 @@
 #include <deque>
 
 // plot parameters
-constexpr uint16_t x_offset = 50;
+constexpr uint16_t x_offset = 80;
 constexpr uint16_t y_offset = 50;
 constexpr uint16_t font_size = 20;
-constexpr std::array<float, 2> curves_strokes{1.0f, 2.0f};
+constexpr uint16_t timecode_size = 136;
+constexpr uint16_t tick_size = 8;
+constexpr std::array<float, 2> curves_strokes{2.0f, 4.0f};
 constexpr float font_baseline_ratio = 0.3f;
 constexpr float font_width_ratio = 0.5f;
 constexpr float font_exponent_ratio = 0.8f;
@@ -391,10 +393,13 @@ int main(int argc, char* argv[]) {
             }
             *output << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 " << width << " "
                     << height << "\">\n";
-            for (uint32_t index = log_minimum + 1; index < log_maximum + 1; ++index) {
-                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
-                        << "\" stroke-width=\"1\" d=\"M" << x_offset << "," << value_to_y(std::pow(10, index)) << " L"
-                        << (width - 1) << "," << value_to_y(std::pow(10, index)) << "\" />\n";
+            for (uint32_t index = log_minimum; index < log_maximum; ++index) {
+                for (uint32_t multiplier = 2; multiplier < 10; ++multiplier) {
+                    *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color.hex()
+                            << "\"  stroke-width=\"1\" d=\"M" << x_offset << ","
+                            << value_to_y(std::pow(10, index) * multiplier) << " L" << (width - 1) << ","
+                            << value_to_y(std::pow(10, index) * multiplier) << "\" />\n";
+                }
             }
             for (uint32_t index = log_minimum; index < log_maximum + 1; ++index) {
                 const auto digits = std::to_string(index).size();
@@ -409,21 +414,78 @@ int main(int argc, char* argv[]) {
                         << "\" font-size=\"" << std::round(font_size * font_exponent_ratio) << "px\" fill=\""
                         << axis_color.hex() << "\">" << index << "</text>\n";
             }
-            *output << "<text text-anchor=\"begin\" x=\"" << x_offset << "\" y=\""
-                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
-                    << "px\" fill=\"" << axis_color.hex() << "\">"
-                    << timecode(first_and_last_t.first).to_timecode_string() << "</text>\n";
-            *output << "<text text-anchor=\"end\" x=\"" << (width - 1) << "\" y=\""
-                    << (height - 1 - y_offset + font_size * (1 + font_baseline_ratio)) << "\" font-size=\"" << font_size
-                    << "px\" fill=\"" << axis_color.hex() << "\">"
-                    << timecode(first_and_last_t.second).to_timecode_string() << "</text>\n";
-            for (uint32_t index = log_minimum; index < log_maximum; ++index) {
-                for (uint32_t multiplier = 2; multiplier < 10; ++multiplier) {
-                    *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color.hex()
-                            << "\"  stroke-width=\"1\" d=\"M" << x_offset << ","
-                            << value_to_y(std::pow(10, index) * multiplier) << " L" << (width - 1) << ","
-                            << value_to_y(std::pow(10, index) * multiplier) << "\" />\n";
+            const auto duration = first_and_last_t.second - first_and_last_t.first;
+            auto major_tick_delta_exponent =
+                static_cast<uint32_t>(std::floor(std::log10(static_cast<double>(duration))));
+            std::vector<uint64_t> ticks;
+            for (;;) {
+                uint64_t major_tick_delta = 1;
+                for (uint32_t index = 0; index < major_tick_delta_exponent; ++index) {
+                    major_tick_delta *= 10;
                 }
+                ticks.clear();
+                for (uint64_t tick =
+                            (first_and_last_t.first + major_tick_delta - 1) / major_tick_delta * major_tick_delta;
+                        tick < first_and_last_t.second;
+                        tick += major_tick_delta) {
+                    ticks.push_back(tick);
+                }
+                if (major_tick_delta_exponent == 0 || ticks.size() >= 3) {
+                    break;
+                }
+                --major_tick_delta_exponent;
+            }
+            if (major_tick_delta_exponent > 0) {
+                const auto minor_tick_bottom = height - 1 - y_offset + tick_size / 2;
+                uint64_t minor_tick_delta = 1;
+                for (uint32_t index = 0; index < major_tick_delta_exponent - 1; ++index) {
+                    minor_tick_delta *= 10;
+                }
+                uint64_t major_tick_delta = 1;
+                for (uint32_t index = 0; index < major_tick_delta_exponent; ++index) {
+                    major_tick_delta *= 10;
+                }
+                for (uint64_t tick =
+                            (first_and_last_t.first + minor_tick_delta - 1) / minor_tick_delta * minor_tick_delta;
+                        tick < first_and_last_t.second;
+                        tick += minor_tick_delta) {
+                    if (tick % major_tick_delta != 0) {
+                        const auto x =
+                            static_cast<int32_t>(x_offset)
+                            + static_cast<int32_t>(
+                                static_cast<double>(tick - first_and_last_t.first) / static_cast<double>(duration)
+                                * static_cast<double>(width - 1 - x_offset));
+                        *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color.hex()
+                                << "\" stroke-width=\"1\" d=\"M" << x << "," << 0 << " L" << x << ","
+                                << (height - 1 - y_offset) << "\" />\n";
+                    }
+                }
+            }
+            int32_t previous_timecode_end = -static_cast<int32_t>(timecode_size);
+            for (const auto tick : ticks) {
+                const auto x = static_cast<int32_t>(x_offset)
+                                + static_cast<int32_t>(
+                                    static_cast<double>(tick - first_and_last_t.first)
+                                    / static_cast<double>(duration) * static_cast<double>(width - 1 - x_offset));
+                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
+                        << "\" stroke-width=\"1\" d=\"M" << x << "," << 0 << " L" << x << ","
+                        << (height - 1 - y_offset) << "\" />\n";
+                if (x - timecode_size / 2 >= previous_timecode_end + timecode_size
+                    && x + timecode_size / 2 <= width - 1) {
+                    *output << "<path fill=\"#00000000\" stroke=\"" << axis_color.hex()
+                            << "\" stroke-width=\"2\" d=\"M" << x << "," << (height - 1 - y_offset) << " L" << x
+                            << "," << (height - 1 - y_offset + tick_size) << "\" />\n";
+                    *output << "<text text-anchor=\"middle\" x=\"" << x << "\" y=\""
+                            << (height - 1 - y_offset + tick_size + font_size * (1 + font_baseline_ratio))
+                            << "\" font-size=\"" << font_size << "px\" fill=\"" << axis_color.hex() << "\">"
+                            << timecode(tick).to_timecode_string() << "</text>\n";
+                    previous_timecode_end = x + timecode_size / 2;
+                }
+            }
+            for (uint32_t index = log_minimum + 1; index < log_maximum + 1; ++index) {
+                *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
+                        << "\" stroke-width=\"1\" d=\"M" << x_offset << "," << value_to_y(std::pow(10, index)) << " L"
+                        << (width - 1) << "," << value_to_y(std::pow(10, index)) << "\" />\n";
             }
             std::array<std::string, 2> curves_colors{long_color.hex(), short_color.hex()};
             for (const std::size_t index : {1, 0}) {
@@ -442,7 +504,7 @@ int main(int argc, char* argv[]) {
                 *output << "Z\" />\n";
             }
             *output << "<path fill=\"#00000000\" stroke=\"" << axis_color.hex() << "\" stroke-width=\"2\" d=\"M"
-                    << x_offset << ",0 L" << x_offset << "," << (height - y_offset) << " L" << (width - 1) << ","
+                    << x_offset << ",0 L" << x_offset << "," << (height - 1 - y_offset) << " L" << (width - 1) << ","
                     << (height - 1 - y_offset) << "\" />\n";
             *output << "</svg>";
         });
