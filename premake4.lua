@@ -248,7 +248,7 @@ solution 'utilities'
         kind 'ConsoleApp'
         language 'C++'
         location 'build'
-        files {'source/spatiospectrogram.cpp', 'third_party/lodepng/lodepng.cpp'}
+        files {'source/spatiospectrogram.cpp'}
         configuration 'release'
             targetdir 'build/release'
             defines {'NDEBUG'}
