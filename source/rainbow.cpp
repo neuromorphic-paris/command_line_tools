@@ -1,4 +1,3 @@
-#include "../third_party/lodepng/lodepng.h"
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
 #include "../third_party/tarsier/source/stitch.hpp"

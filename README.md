@@ -22,6 +22,8 @@ Command-line tools bundles command-line applications to manipulate event files.
     - [rainmaker](#rainmaker)
     - [rainbow](#rainbow)
     - [size](#size)
+    - [spectrogram](#spectrogram)
+    - [spatiospectrogram](#spatiospectrogram)
     - [statistics](#statistics)
 - [contribute](#contribute)
     - [development dependencies](#development-dependencies)
@@ -168,7 +170,7 @@ Available options:
 
 ## es_to_frames
 
-es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists in raw rgb24 frames.
+es_to_frames converts an Event Stream file to video frames. Frames use the P6 Netpbm format (https://en.wikipedia.org/wiki/Netpbm) if the output is a directory. Otherwise, the output consists of raw rgb24 frames.
 
 ```sh
 ./es_to_frames [options]
@@ -304,6 +306,77 @@ size prints the spatial dimensions of the given Event Stream file.
 Available options:
 
 -   `-h`, `--help` shows the help message
+
+## spectrogram
+
+spectrogram plots a short-time Fourier transform.
+
+```sh
+./spectrogram [options] /path/to/input.es /path/to/output.png /path/to/output.json
+```
+
+Available options:
+
+-   `-b timecode`, `--begin [timecode]` ignores events before this timestamp (timecode, `defaults to 00:00:00`)
+-   `-e [timecode]`, `--end [timecode]` ignores events after this timestamp (timecode, defaults to the end of the recording)
+-   `-l [int]`, `--left [int]` input region of interest in pixels (defaults to 0)
+-   `-o [int]`, `--bottom [int]` input region of interest in pixels (defaults to 0)
+-   `-c [int]`, `--width [int]` input region of interest in pixels (defaults to input width)
+-   `-d [int]`, `--height [int]` input region of interest in pixels (defaults to input height)
+-   `-t [int]`, `--tau [int]` decay in µs (defaults to `100000`)
+-   `-m [mode]`, `--mode [mode]` polarity mode, one of `on`, `off`, `all`, `abs` (defaults to `all`)
+    -   `on` only uses ON events
+    -   `off` only uses OFF events
+    -   `all` multiplies the complex activity by 1 for ON events and -1 for OFF events
+    -   `abs` multiplies the complex activity by 1 for all events
+-   `-i [float]`, `--minimum [float]` minimum frequency in Hertz (defaults to `5e6 / (end - begin)`)
+-   `-j [float]`, `--maximum [float]` maximum frequency in Hertz (defaults to `10000.0`)
+-   `-f [int]`, `--frequencies [int]` number of frequencies (defaults to `100`)
+-   `-s [int]`, `--times [int]` number of time samples (defaults to `1000`)
+-   `-g [float]`, `--gamma [float]` gamma ramp (power) to apply to the output image (defaults to `0.5`)
+-   `-h`, `--help` shows the help message
+
+## spatiospectrogram
+
+-   `-i [path]`, `--input [path]` sets the path to the input .es file (defaults to standard input)
+-   `-o [path]`, `--output [path]` sets the path to the output directory (defaults to standard output)
+-   `-b [timecode]`, `--begin [timecode]` ignores events before this timestamp (timecode, defaults to `00:00:00`)
+-   `-e [timecode]`, `--end [timecode]` ignores events after this timestamp (timecode, defaults to the end of the recording)
+-   `-f [timecode]`, `--frametime [timecode]` sets the time between two frames (timecode, defaults to `00:00:00.020`)
+-   `-c [int]`, `--scale [int]` scale up the output by the given integer factor (defaults to `1`)
+-   `-t [int]`, `--tau [int]` decay in µs (defaults to `100000`)
+-   `-m [mode]`, `--mode [mode]` polarity mode, one of `on`, `off`, `all`, `abs` (defaults to `all`)
+    -   `on` only uses ON events
+    -   `off` only uses OFF events
+    -   `all` multiplies the complex activity by 1 for ON events and -1 for OFF events
+    -   `abs` multiplies the complex activity by 1 for all events
+-   `-p [float]`, `--minimum [float]` minimum frequency in Hertz (defaults `10.0`)
+-   `-q [float]`, `--maximum [float]` maximum frequency in Hertz (defaults to `10000.0`)
+-   `-u [int]`, `--frequencies [int]` number of frequencies (defaults to `100`)
+-   `-g [float]`, `--frequency-gamma [float]` gamma ramp (power) to apply to the output frequency (defaults to `0.5`)
+-   `-k [float]`, `--amplitude-gamma [float]` gamma ramp (power) to apply to the output amplitude (defaults to `0.5`)
+-   `-r [float]`, `--discard [float]` amplitude discard ratio for tone-mapping (defaults to `0.001`)
+-   `-a`, `--add-timecode` adds a timecode overlay
+-   `-d [int]`, `--digits [int]` sets the number of digits in output filenames, ignored if the output is not a directory (defaults to `6`)
+-   `-h`, `--help` shows the help message
+
+The commands below show how to manually pipe the generated frames into FFmpeg:
+
+```sh
+cat /path/to/input.es | ./spatiospectrogram | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv420p /path/to/output.mp4
+```
+
+You may need to change the width, height and framerate of the video depending on the `spatiospectrogram` options and the Event Stream dimensions. You can use `./size /path/to/input.es` to read the dimensions:
+
+```sh
+cat /path/to/input.es | ./spatiospectrogram --frametime 10000 | ffmpeg -f rawvideo -s $(./size /path/to/input.es) -framerate 100 -pix_fmt rgb24 -i - -c:v libx264 -pix_fmt yuv420p /path/to/output.mp4
+```
+
+You can also use a lossless encoding format:
+
+```sh
+cat /path/to/input.es | ./spatiospectrogram | ffmpeg -f rawvideo -s 1280x720 -framerate 50 -pix_fmt rgb24 -i - -c:v libx265 -x265-params lossless=1 -pix_fmt yuv444p /path/to/output.mp4
+```
 
 ## statistics
 

@@ -336,10 +336,8 @@ int main(int argc, char* argv[]) {
 
             // encode the base frame
             std::vector<uint8_t> png_bytes;
-            {
-                if (lodepng::encode(png_bytes, base_frame, header.width, header.height) != 0) {
-                    throw std::logic_error("encoding the base frame failed");
-                }
+            if (lodepng::encode(png_bytes, base_frame, header.width, header.height) != 0) {
+                throw std::logic_error("encoding the base frame failed");
             }
 
             // render the HTML output

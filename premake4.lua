@@ -244,6 +244,50 @@ solution 'utilities'
             linkoptions {'-std=c++11'}
         configuration 'windows'
             files {'.clang-format'}
+    project 'spatiospectrogram'
+        kind 'ConsoleApp'
+        language 'C++'
+        location 'build'
+        files {'source/spatiospectrogram.cpp', 'third_party/lodepng/lodepng.cpp'}
+        configuration 'release'
+            targetdir 'build/release'
+            defines {'NDEBUG'}
+            flags {'OptimizeSpeed'}
+        configuration 'debug'
+            targetdir 'build/debug'
+            defines {'DEBUG'}
+            flags {'Symbols'}
+        configuration 'linux'
+            links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
+    project 'spectrogram'
+        kind 'ConsoleApp'
+        language 'C++'
+        location 'build'
+        files {'source/spectrogram.cpp', 'third_party/lodepng/lodepng.cpp'}
+        configuration 'release'
+            targetdir 'build/release'
+            defines {'NDEBUG'}
+            flags {'OptimizeSpeed'}
+        configuration 'debug'
+            targetdir 'build/debug'
+            defines {'DEBUG'}
+            flags {'Symbols'}
+        configuration 'linux'
+            links {'pthread'}
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'macosx'
+            buildoptions {'-std=c++11'}
+            linkoptions {'-std=c++11'}
+        configuration 'windows'
+            files {'.clang-format'}
     project 'statistics'
         kind 'ConsoleApp'
         language 'C++'

@@ -324,7 +324,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             if (first_and_last_t.second <= first_and_last_t.first) {
-                throw std::runtime_error("begin must be smaller than than the end of the recording");
+                throw std::runtime_error("begin must be smaller than the end of the recording");
             }
             double minimum = std::numeric_limits<double>::infinity();
             double maximum = -std::numeric_limits<double>::infinity();
