@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include "../third_party/pontella/source/pontella.hpp"
 #include "../third_party/sepia/source/sepia.hpp"
 #define STB_TRUETYPE_IMPLEMENTATION
@@ -416,7 +417,7 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("frequencies");
                 if (name_and_argument != command.options.end()) {
-                    frequencies_count = std::stoull(name_and_argument->second);
+                    frequencies_count = static_cast<std::size_t>(std::stoull(name_and_argument->second));
                     if (frequencies_count == 0) {
                         throw std::runtime_error("frequencies must be larger than 0");
                     }
