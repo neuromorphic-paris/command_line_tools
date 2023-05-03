@@ -408,7 +408,7 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("gamma");
                 if (name_and_argument != command.options.end()) {
-                    maximum_frequency = std::stod(name_and_argument->second);
+                    gamma = std::stod(name_and_argument->second);
                     if (gamma <= 0) {
                         throw std::runtime_error("gamma must be larger than 0");
                     }
