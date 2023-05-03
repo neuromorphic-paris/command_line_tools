@@ -326,6 +326,7 @@ int main(int argc, char* argv[]) {
             {"maximum", {"j"}},
             {"frequencies", {"f"}},
             {"times", {"s"}},
+            {"gamma", {"g"}},
         },
         {},
         [](pontella::command command) {
