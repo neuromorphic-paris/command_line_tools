@@ -317,13 +317,13 @@ spectrogram plots a short-time Fourier transform.
 
 Available options:
 
--   `-b timecode`, `--begin [timecode]` ignores events before this timestamp (timecode, `defaults to 00:00:00`)
+-   `-b [timecode]`, `--begin [timecode]` ignores events before this timestamp (timecode, `defaults to 00:00:00`)
 -   `-e [timecode]`, `--end [timecode]` ignores events after this timestamp (timecode, defaults to the end of the recording)
 -   `-l [int]`, `--left [int]` input region of interest in pixels (defaults to 0)
 -   `-o [int]`, `--bottom [int]` input region of interest in pixels (defaults to 0)
 -   `-c [int]`, `--width [int]` input region of interest in pixels (defaults to input width)
 -   `-d [int]`, `--height [int]` input region of interest in pixels (defaults to input height)
--   `-t [int]`, `--tau [int]` decay in µs (defaults to `100000`)
+-   `-t [timecode]`, `--tau [timecode]` decay in µs (timecode, defaults to `00:00:00.100000`)
 -   `-m [mode]`, `--mode [mode]` polarity mode, one of `on`, `off`, `all`, `abs` (defaults to `all`)
     -   `on` only uses ON events
     -   `off` only uses OFF events
@@ -344,7 +344,7 @@ Available options:
 -   `-e [timecode]`, `--end [timecode]` ignores events after this timestamp (timecode, defaults to the end of the recording)
 -   `-f [timecode]`, `--frametime [timecode]` sets the time between two frames (timecode, defaults to `00:00:00.020`)
 -   `-c [int]`, `--scale [int]` scale up the output by the given integer factor (defaults to `1`)
--   `-t [int]`, `--tau [int]` decay in µs (defaults to `100000`)
+-   `-t [timecode]`, `--tau [timecode]` decay in µs (timecode, defaults to `00:00:00.100000`)
 -   `-m [mode]`, `--mode [mode]` polarity mode, one of `on`, `off`, `all`, `abs` (defaults to `all`)
     -   `on` only uses ON events
     -   `off` only uses OFF events

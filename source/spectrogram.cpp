@@ -289,8 +289,8 @@ int main(int argc, char* argv[]) {
          "                                              defaults to input width",
          "    -d [int], --height [int]             input region of interest in pixels",
          "                                              defaults to input height",
-         "    -t [int], --tau [int]                decay in µs",
-         "                                             defaults to 100000",
+          "    -t [timecode], --tau [timecode]     decay (timecode)",
+         "                                             defaults to 00:00:00.100000",
          "    -m [mode], --mode [mode]             polarity mode, one of \"on\", \"off\", \"all\", \"abs\"",
          "                                             \"on\" only uses ON events",
          "                                             \"off\" only uses OFF events",
@@ -351,7 +351,7 @@ int main(int argc, char* argv[]) {
             {
                 const auto name_and_argument = command.options.find("tau");
                 if (name_and_argument != command.options.end()) {
-                    tau = std::stoull(name_and_argument->second);
+                    tau = timecode(name_and_argument->second).value();
                     if (tau == 0) {
                         throw std::runtime_error("tau must be larger than 0");
                     }
