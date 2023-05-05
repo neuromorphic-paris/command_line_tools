@@ -533,13 +533,13 @@ int main(int argc, char* argv[]) {
                     (*json_output) << ",\n";
                 }
             }
-            (*json_output) << "\n],\n    \"times\": [\n";
+            (*json_output) << "\n    ],\n    \"times\": [\n";
             for (std::size_t index = 0; index < complex_spectrogram.times.size(); ++index) {
                 (*json_output) << "        " << complex_spectrogram.times[index];
                 if (index < complex_spectrogram.times.size() - 1) {
                     (*json_output) << ",\n";
                 }
             }
-            (*json_output) << "]\n}\n";
+            (*json_output) << "\n    ]\n}\n";
         });
 }
