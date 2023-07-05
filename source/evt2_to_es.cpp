@@ -3,13 +3,13 @@
 
 int main(int argc, char* argv[]) {
     return pontella::main(
-        {"evt3_to_es converts a raw file (EVT3) into an Event Stream file",
+        {"evt2_to_es converts a raw file (EVT2) into an Event Stream file",
          "Syntax: ./evt3_to_es [options] /path/to/input.raw /path/to/output.es",
          "Available options:",
          "    -x, --width        sensor width in pixels if not specified in the header",
-         "                          defaults to 1280",
+         "                          defaults to 640",
          "    -y, --height       default sensor height in pixels if not specified in the header",
-         "                          defaults to 720",
+         "                          defaults to 480",
          "    -n, --normalize    whether to offset timestamps so that the first event has timestamp zero",
          "    -h, --help         shows this help message"},
         argc,
@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
             if (command.arguments[0] == "none" && command.arguments[1] == "none") {
                 throw std::runtime_error("none cannot be used for both the td file and aps file");
             }
-            evt::header default_header{1280, 720};
+            evt::header default_header{640, 480};
             {
                 const auto name_and_argument = command.options.find("width");
                 if (name_and_argument != command.options.end()) {
@@ -44,7 +44,7 @@ int main(int argc, char* argv[]) {
             }
             auto stream = sepia::filename_to_ifstream(command.arguments[0]);
             const auto header = evt::read_header(*stream, std::move(default_header));
-            evt::observable_3(
+            evt::observable_2(
                 *stream,
                 header,
                 command.flags.find("normalize") != command.flags.end(),
