@@ -288,7 +288,7 @@ int main(int argc, char* argv[]) {
          "                                                 defaults to 00:00:00.020",
          "    -c [int], --scale [int]                  scale up the output by the given integer factor",
          "                                                 defaults to 1",
-          "    -t [timecode], --tau [timecode]         decay (timecode)",
+         "    -t [timecode], --tau [timecode]         decay (timecode)",
          "                                                 defaults to 00:00:00.100000",
          "    -m [mode], --mode [mode]                 polarity mode, one of \"on\", \"off\", \"all\", \"abs\"",
          "                                                 \"on\" only uses ON events",

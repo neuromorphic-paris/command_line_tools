@@ -18,6 +18,7 @@ Command-line tools bundles command-line applications to manipulate event files.
     - [es\_to\_frames](#es_to_frames)
     - [es\_to\_ply](#es_to_ply)
     - [event\_rate](#event_rate)
+    - [evt2\_to\_es](#evt2_to_es)
     - [evt3\_to\_es](#evt3_to_es)
     - [rainmaker](#rainmaker)
     - [rainbow](#rainbow)
@@ -252,6 +253,21 @@ Available options:
 -   `-e size`, `--height size` sets the output height in pixels (defaults to `720`)
 -   `-h`, `--help` shows the help message
 
+## evt2_to_es
+
+evt2_to_es converts a raw file (EVT2) into an Event Stream file.
+
+```sh
+./evt2_to_es [options] /path/to/input.raw /path/to/output.es
+```
+
+Available options:
+
+-   `-x size`, `--width size` sets the sensor width in pixels if not specified in the header (defaults to `640`)
+-   `-y size`, `--height size` sets the sensor height in pixels if not specified in the header (defaults to `480`)
+-   `-n`, `--normalize` offsets the timestamps so that the first one is zero
+-   `-h`, `--help` shows the help message
+
 ## evt3_to_es
 
 evt3_to_es converts a raw file (EVT3) into an Event Stream file.
@@ -262,6 +278,9 @@ evt3_to_es converts a raw file (EVT3) into an Event Stream file.
 
 Available options:
 
+-   `-x size`, `--width size` sets the sensor width in pixels if not specified in the header (defaults to `1280`)
+-   `-y size`, `--height size` sets the sensor height in pixels if not specified in the header (defaults to `720`)
+-   `-n`, `--normalize` offsets the timestamps so that the first one is zero
 -   `-h`, `--help` shows the help message
 
 ## rainmaker

@@ -290,7 +290,7 @@ int main(int argc, char* argv[]) {
          "                                              defaults to input width",
          "    -d [int], --height [int]             input region of interest in pixels",
          "                                              defaults to input height",
-          "    -t [timecode], --tau [timecode]     decay (timecode)",
+         "    -t [timecode], --tau [timecode]     decay (timecode)",
          "                                             defaults to 00:00:00.100000",
          "    -m [mode], --mode [mode]             polarity mode, one of \"on\", \"off\", \"all\", \"abs\"",
          "                                             \"on\" only uses ON events",

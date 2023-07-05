@@ -46,13 +46,13 @@ void synth(
              0, // chunk data size
              from_bytes('W', 'A', 'V', 'E'),
              from_bytes('f', 'm', 't', ' '),
-             16,                      // format chunk size
-             from_bytes(1, 0, 2, 0),  // audio format and channels
+             16,                     // format chunk size
+             from_bytes(1, 0, 2, 0), // audio format and channels
              sampling_rate,
              sampling_rate * 4,       // bytes per second
              from_bytes(4, 0, 16, 0), //  block align and bits per sample
              from_bytes('d', 'a', 't', 'a'),
-             0,                       // chunk data size
+             0, // chunk data size
          }) {
         write_le_uint32(*output_stream.get(), header_value);
     }

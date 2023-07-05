@@ -425,9 +425,9 @@ int main(int argc, char* argv[]) {
                 }
                 ticks.clear();
                 for (uint64_t tick =
-                            (first_and_last_t.first + major_tick_delta - 1) / major_tick_delta * major_tick_delta;
-                        tick < first_and_last_t.second;
-                        tick += major_tick_delta) {
+                         (first_and_last_t.first + major_tick_delta - 1) / major_tick_delta * major_tick_delta;
+                     tick < first_and_last_t.second;
+                     tick += major_tick_delta) {
                     ticks.push_back(tick);
                 }
                 if (major_tick_delta_exponent == 0 || ticks.size() >= 3) {
@@ -446,15 +446,14 @@ int main(int argc, char* argv[]) {
                     major_tick_delta *= 10;
                 }
                 for (uint64_t tick =
-                            (first_and_last_t.first + minor_tick_delta - 1) / minor_tick_delta * minor_tick_delta;
-                        tick < first_and_last_t.second;
-                        tick += minor_tick_delta) {
+                         (first_and_last_t.first + minor_tick_delta - 1) / minor_tick_delta * minor_tick_delta;
+                     tick < first_and_last_t.second;
+                     tick += minor_tick_delta) {
                     if (tick % major_tick_delta != 0) {
-                        const auto x =
-                            static_cast<int32_t>(x_offset)
-                            + static_cast<int32_t>(
-                                static_cast<double>(tick - first_and_last_t.first) / static_cast<double>(duration)
-                                * static_cast<double>(width - 1 - x_offset));
+                        const auto x = static_cast<int32_t>(x_offset)
+                                       + static_cast<int32_t>(
+                                           static_cast<double>(tick - first_and_last_t.first)
+                                           / static_cast<double>(duration) * static_cast<double>(width - 1 - x_offset));
                         *output << "<path fill=\"#00000000\" stroke=\"" << secondary_grid_color.hex()
                                 << "\" stroke-width=\"1\" d=\"M" << x << "," << 0 << " L" << x << ","
                                 << (height - 1 - y_offset) << "\" />\n";
@@ -464,17 +463,17 @@ int main(int argc, char* argv[]) {
             int32_t previous_timecode_end = -static_cast<int32_t>(timecode_size);
             for (const auto tick : ticks) {
                 const auto x = static_cast<int32_t>(x_offset)
-                                + static_cast<int32_t>(
-                                    static_cast<double>(tick - first_and_last_t.first)
-                                    / static_cast<double>(duration) * static_cast<double>(width - 1 - x_offset));
+                               + static_cast<int32_t>(
+                                   static_cast<double>(tick - first_and_last_t.first) / static_cast<double>(duration)
+                                   * static_cast<double>(width - 1 - x_offset));
                 *output << "<path fill=\"#00000000\" stroke=\"" << main_grid_color.hex()
-                        << "\" stroke-width=\"1\" d=\"M" << x << "," << 0 << " L" << x << ","
-                        << (height - 1 - y_offset) << "\" />\n";
+                        << "\" stroke-width=\"1\" d=\"M" << x << "," << 0 << " L" << x << "," << (height - 1 - y_offset)
+                        << "\" />\n";
                 if (x - timecode_size / 2 >= previous_timecode_end + timecode_size
                     && x + timecode_size / 2 <= width - 1) {
-                    *output << "<path fill=\"#00000000\" stroke=\"" << axis_color.hex()
-                            << "\" stroke-width=\"2\" d=\"M" << x << "," << (height - 1 - y_offset) << " L" << x
-                            << "," << (height - 1 - y_offset + tick_size) << "\" />\n";
+                    *output << "<path fill=\"#00000000\" stroke=\"" << axis_color.hex() << "\" stroke-width=\"2\" d=\"M"
+                            << x << "," << (height - 1 - y_offset) << " L" << x << ","
+                            << (height - 1 - y_offset + tick_size) << "\" />\n";
                     *output << "<text text-anchor=\"middle\" x=\"" << x << "\" y=\""
                             << (height - 1 - y_offset + tick_size + font_size * (1 + font_baseline_ratio))
                             << "\" font-size=\"" << font_size << "px\" fill=\"" << axis_color.hex() << "\">"
