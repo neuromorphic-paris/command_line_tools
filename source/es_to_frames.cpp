@@ -488,7 +488,7 @@ int main(int argc, char* argv[]) {
             {"add-timecode", {"a"}},
         },
         [](pontella::command command) {
-            uint64_t begin_t = 0;
+            uint64_t begin_t = std::numeric_limits<uint64_t>::max();
             {
                 const auto name_and_argument = command.options.find("begin");
                 if (name_and_argument != command.options.end()) {
@@ -500,7 +500,7 @@ int main(int argc, char* argv[]) {
                 const auto name_and_argument = command.options.find("end");
                 if (name_and_argument != command.options.end()) {
                     end_t = timecode(name_and_argument->second).value();
-                    if (end_t <= begin_t) {
+                    if (begin_t != std::numeric_limits<uint64_t>::max() && end_t <= begin_t) {
                         throw std::runtime_error("end must be strictly larger than begin");
                     }
                 }
@@ -647,10 +647,10 @@ int main(int argc, char* argv[]) {
                             break;
                     }
                     uint64_t frame_index = 0;
-                    auto first_t = std::numeric_limits<uint64_t>::max();
+                    auto first_t = begin_t;
                     frame output_frame(header.width, header.height, scale);
                     sepia::join_observable<sepia::type::dvs>(std::move(input), header, [&](sepia::dvs_event event) {
-                        if (event.t < begin_t) {
+                        if (begin_t != std::numeric_limits<uint64_t>::max() && event.t < begin_t) {
                             return;
                         }
                         if (event.t >= end_t) {
@@ -793,7 +793,7 @@ int main(int argc, char* argv[]) {
                         header,
                         tarsier::make_replicate<sepia::atis_event>(
                             [&](sepia::atis_event event) {
-                                if (event.t < begin_t) {
+                                if (begin_t != std::numeric_limits<uint64_t>::max() && event.t < begin_t) {
                                     return;
                                 }
                                 if (event.t >= end_t) {
